@@ -7,6 +7,7 @@
 # with the same self-signed certificate. Runs on macOS (security, plutil).
 
 import argparse
+import base64
 import datetime
 import os
 import plistlib
@@ -29,17 +30,19 @@ def make_profile(source, destination, bundle_id, certificate_data, signing_ident
     profile = plistlib.loads(parsed.encode('utf-8'))
     profile['CreationDate'] = datetime.datetime(2026, 1, 1)
     profile['ExpirationDate'] = datetime.datetime(2036, 1, 1)
-    fd, temp_path = tempfile.mkstemp(suffix='.mobileprovision')
+    # Same as GenerateProfiles.process_provisioning_profile, which takes
+    # a signed profile: put our certificate in and sign the plist again.
+    profile['DeveloperCertificates'] = [base64.b64decode(certificate_data)]
+    profile.pop('DER-Encoded-Profile', None)
+    fd, temp_path = tempfile.mkstemp(suffix='.plist')
     os.close(fd)
     with open(temp_path, 'wb') as file:
         plistlib.dump(profile, file)
     try:
-        GenerateProfiles.process_provisioning_profile(
-            source=temp_path,
-            destination=destination,
-            certificate_data=certificate_data,
-            signing_identity=signing_identity,
-            keychain_name=keychain_name)
+        run_executable_with_output('security', arguments=[
+            'cms', '-S', '-k', keychain_name, '-N', signing_identity,
+            '-i', temp_path, '-o', destination
+        ], check_result=True)
     finally:
         os.unlink(temp_path)
 

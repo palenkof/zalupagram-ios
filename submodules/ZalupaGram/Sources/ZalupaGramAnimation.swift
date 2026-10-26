@@ -262,12 +262,6 @@ public func zalupaGramStartAnimation(context: AccountContext, peerId: EnginePeer
     return .started(duration: duration)
 }
 
-public func zalupaGramAnimationStartedText(duration: Double, strings: PresentationStrings) -> String {
-    let ru = zalupaGramIsRussian(strings)
-    let value = durationText(duration, ru: ru)
-    return ru ? "Анимация займёт около \(value), потом сообщение останется как есть." : "The animation takes about \(value), then the message stays as is."
-}
-
 public func zalupaGramAnimationTooManyText(strings: PresentationStrings) -> String {
     return zalupaGramIsRussian(strings) ? "Подождите, пока закончатся предыдущие анимации." : "Wait for the previous animations to finish."
 }

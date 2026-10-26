@@ -363,19 +363,18 @@ private func zalupaGramAnimateInput(selfController: ChatControllerImpl?, sourceV
             templateIndex: index,
             strings: presentationData.strings
         )
-        let text: String
         switch result {
-        case let .started(duration):
-            text = zalupaGramAnimationStartedText(duration: duration, strings: presentationData.strings)
+        case .started:
+            // No toast here: it would cover the animated message.
             selfController.updateChatPresentationInterfaceState(animated: true, interactive: false, saveInterfaceState: true, {
                 $0.updatedInterfaceState { $0.withUpdatedReplyMessageSubject(nil).withUpdatedComposeInputState(ChatTextInputState(inputText: NSAttributedString(string: ""))) }
             })
         case .tooManyRunning:
-            text = zalupaGramAnimationTooManyText(strings: presentationData.strings)
+            let text = zalupaGramAnimationTooManyText(strings: presentationData.strings)
+            selfController.present(UndoOverlayController(presentationData: presentationData, content: .info(title: nil, text: text, timeout: nil, customUndoText: nil), elevatedLayout: false, action: { _ in return false }), in: .current)
         case .emptyPhrase:
-            return
+            break
         }
-        selfController.present(UndoOverlayController(presentationData: presentationData, content: .info(title: nil, text: text, timeout: nil, customUndoText: nil), elevatedLayout: false, action: { _ in return false }), in: .current)
     })
     // After the send menu has gone.
     Queue.mainQueue().after(0.25, { [weak selfController, weak sourceView] in

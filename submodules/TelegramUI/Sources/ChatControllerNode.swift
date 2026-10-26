@@ -77,6 +77,7 @@ import RichTextEditorUIKit
 import RichTextEditorMediaView
 import InstantPageUI
 import ChatRichTextEditorComposer
+import ZalupaGramCore
 
 final class VideoNavigationControllerDropContentItem: NavigationControllerDropContentItem {
     let itemNode: OverlayMediaItemNode
@@ -5343,6 +5344,9 @@ class ChatControllerNode: ASDisplayNode, ASScrollViewDelegate {
                                 } else {
                                     attributes.append(WebpagePreviewMessageAttribute(leadingPreview: !urlPreview.positionBelowText, forceLargeMedia: urlPreview.largeMedia, isManuallyAdded: true, isSafe: false))
                                 }
+                            } else if ZalupaGramCore.option(.noLinkPreviews) {
+                                // ZalupaGram: otherwise the server adds a preview by itself.
+                                attributes.append(OutgoingContentInfoMessageAttribute(flags: [.disableLinkPreviews]))
                             }
                             
                             var bubbleUpEmojiOrStickersets: [ItemCollectionId] = []

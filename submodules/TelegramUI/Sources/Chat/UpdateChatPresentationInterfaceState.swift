@@ -16,6 +16,7 @@ import WebUI
 import LegacyChatHeaderPanelComponent
 import ComponentFlow
 import ComponentDisplayAdapters
+import ZalupaGramCore
 
 extension ChatControllerImpl {
     func updateRightNavigationButtons(presentationInterfaceState: ChatPresentationInterfaceState, transition: ContainedViewLayoutTransition) {
@@ -278,7 +279,8 @@ func updateChatPresentationInterfaceStateImpl(
         }
     }
     
-    var canHaveUrlPreview = true
+    // ZalupaGram: links are sent without a preview, so don't look for one.
+    var canHaveUrlPreview = !ZalupaGramCore.option(.noLinkPreviews)
     if case let .customChatContents(customChatContents) = updatedChatPresentationInterfaceState.subject {
         switch customChatContents.kind {
         case .hashTagSearch:

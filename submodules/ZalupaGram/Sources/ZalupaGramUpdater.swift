@@ -15,7 +15,10 @@ import OverlayStatusController
 private let latestReleaseUrl = URL(string: "https://api.github.com/repos/palenkof/zalupagram-ios-releases/releases/latest")!
 private let lastCheckKey = "zg_update_last_check"
 private let dismissedVersionKey = "zg_update_dismissed_version"
-private let autoCheckInterval: Double = 6.0 * 60.0 * 60.0
+// Asked by the user: remind about a new version on every return to the
+// app, but not more often than once an hour.
+private let autoCheckInterval: Double = 60.0 * 60.0
+private var foregroundObserver: NSObjectProtocol?
 
 private struct ReleaseInfo {
     let version: String
@@ -205,10 +208,17 @@ private func presentUpdateAlert(_ release: ReleaseInfo, token: String, context: 
     ], actionLayout: .vertical), context: context)
 }
 
-// Called when the app is ready (manual: false, at most every 6 hours, a
-// version put off with «Later» is not offered again) and from the ZalupaGram
-// settings (manual: true, always answers).
+// Called when the app is ready and on every return to it (manual: false,
+// at most once an hour, «Later» puts it off for an hour) and from the
+// ZalupaGram settings (manual: true, always answers).
 public func zalupaGramCheckForUpdates(context: AccountContext, manual: Bool) {
+    if !manual && foregroundObserver == nil {
+        foregroundObserver = NotificationCenter.default.addObserver(forName: UIApplication.willEnterForegroundNotification, object: nil, queue: .main, using: { [weak context] _ in
+            if let context {
+                zalupaGramCheckForUpdates(context: context, manual: false)
+            }
+        })
+    }
     let presentationData = context.sharedContext.currentPresentationData.with { $0 }
     let ru = zalupaGramIsRussian(presentationData.strings)
     guard let token = updateToken() else {
@@ -232,9 +242,6 @@ public func zalupaGramCheckForUpdates(context: AccountContext, manual: Bool) {
             return
         }
         if isNewer(release.version, than: ZalupaGram.version) {
-            if !manual && UserDefaults.standard.string(forKey: dismissedVersionKey) == release.version {
-                return
-            }
             presentUpdateAlert(release, token: token, context: context)
         } else if manual {
             present(textAlertController(context: context, title: nil, text: ru ? "У вас последняя версия: \(ZalupaGram.version)." : "You have the latest version: \(ZalupaGram.version).", actions: [TextAlertAction(type: .defaultAction, title: presentationData.strings.Common_OK, action: {})]), context: context)

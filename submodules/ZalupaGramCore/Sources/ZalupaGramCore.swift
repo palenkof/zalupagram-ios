@@ -8,11 +8,24 @@ public enum ZalupaGramCore {
         case ghostRead = "zg_ghost_read" // Don't send read receipts.
         case ghostOnline = "zg_ghost_online" // Always appear offline.
         case ghostTyping = "zg_ghost_typing" // Don't send "typing...".
+        case timeWithSeconds = "zg_time_with_seconds" // 14:05:37 in messages.
+
+        var defaultValue: Bool {
+            switch self {
+            case .timeWithSeconds:
+                return true
+            default:
+                return false
+            }
+        }
     }
 
     private static let ghostExceptionsKey = "zg_ghost_exceptions"
 
     public static func option(_ option: Option) -> Bool {
+        if UserDefaults.standard.object(forKey: option.rawValue) == nil {
+            return option.defaultValue
+        }
         return UserDefaults.standard.bool(forKey: option.rawValue)
     }
 

@@ -6,6 +6,7 @@ import TelegramStringFormatting
 import TextFormat
 import LocalizedPeerData
 import AccountContext
+import ZalupaGramCore
 
 public enum MessageTimestampStatusFormat {
     case full
@@ -107,7 +108,8 @@ public func stringForMessageTimestampStatus(
         timestamp = orignalDate
     }
     
-    var dateText = stringForMessageTimestamp(timestamp: timestamp, dateTimeFormat: dateTimeFormat)
+    // ZalupaGram: time with seconds.
+    var dateText = stringForMessageTimestamp(timestamp: timestamp, dateTimeFormat: dateTimeFormat, withSeconds: ZalupaGramCore.option(.timeWithSeconds))
     if timestamp == scheduleWhenOnlineTimestamp {
         dateText = "         "
     }

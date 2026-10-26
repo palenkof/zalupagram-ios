@@ -12,6 +12,7 @@ swift_library(
         "-warnings-as-errors",
     ],
     deps = [
+        "//submodules/ZalupaGramCore",
         "//submodules/AsyncDisplayKit",
         "//submodules/TelegramCore",
         "//submodules/Display",

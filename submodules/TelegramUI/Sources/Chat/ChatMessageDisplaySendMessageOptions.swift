@@ -231,8 +231,9 @@ func chatMessageDisplaySendMessageOptions(selfController: ChatControllerImpl, no
             // ZalupaGram: "Animate the phrase" in this menu, for text messages only.
             let zalupaGramInput = zalupaGramInputText(selfController: selfController)
             if mediaPreview == nil, selfController.presentationInterfaceState.subject == nil, (selfController.presentationInterfaceState.interfaceState.forwardMessageIds ?? []).isEmpty, !zalupaGramInput.string.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                ZalupaGramSendMenu.animate = { [weak selfController, weak node] in
-                    zalupaGramAnimateInput(selfController: selfController, sourceView: node?.view)
+                let sourceView = node.view
+                ZalupaGramSendMenu.animate = { [weak selfController, weak sourceView] in
+                    zalupaGramAnimateInput(selfController: selfController, sourceView: sourceView)
                 }
             } else {
                 ZalupaGramSendMenu.animate = nil

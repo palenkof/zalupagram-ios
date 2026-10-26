@@ -16,6 +16,7 @@ import WebUI
 import AvatarNode
 import PeerNameColorItem
 import BoostLevelIconComponent
+import ZalupaGram
 
 private let enabledPublicBioEntities: EnabledEntityTypes = [.allUrl, .mention, .hashtag]
 private let enabledPrivateBioEntities: EnabledEntityTypes = [.internalUrl, .mention, .hashtag]
@@ -896,6 +897,37 @@ func infoItems(
                 interaction.openMemberContextMenu(member, node, gesture)
             }, openStories: { sourceView in
                 interaction.performMemberAction(member, .openStories(sourceView: sourceView))
+            }))
+        }
+    }
+    
+    // ZalupaGram: peer ID the way Bot API shows it and the approximate
+    // registration date, tap to copy the ID.
+    if let peer = data.peer {
+        let rawId = peer.id.id._internalGetInt64Value()
+        var idText: String?
+        var isUser = false
+        switch peer {
+        case .user:
+            idText = zalupaGramBotApiId(rawId: rawId, isUser: true, isChannel: false)
+            isUser = true
+        case .legacyGroup:
+            idText = zalupaGramBotApiId(rawId: rawId, isUser: false, isChannel: false)
+        case .channel:
+            idText = zalupaGramBotApiId(rawId: rawId, isUser: false, isChannel: true)
+        default:
+            break
+        }
+        if let idText {
+            items[.peerInfo]!.append(PeerInfoScreenLabeledValueItem(id: AnyHashable("zalupaGramId"), label: "ID", text: idText, action: { _, _ in
+                UIPasteboard.general.string = idText
+            }, requestLayout: { animated in
+                interaction.requestLayout(animated)
+            }))
+        }
+        if isUser, let registration = zalupaGramRegistrationText(userId: rawId, strings: presentationData.strings) {
+            items[.peerInfo]!.append(PeerInfoScreenLabeledValueItem(id: AnyHashable("zalupaGramRegistration"), label: ZalupaGram.tr(presentationData.strings, "Registration", "Регистрация"), text: registration, action: nil, requestLayout: { animated in
+                interaction.requestLayout(animated)
             }))
         }
     }

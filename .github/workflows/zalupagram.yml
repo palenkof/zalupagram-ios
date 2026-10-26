@@ -131,6 +131,7 @@ jobs:
             --overrideXcodeVersion \
             --cacheDir="$BAZEL_CACHE_DIR" \
             build \
+            --continueOnError \
             --configurationPath="$CONFIG_DIR/configuration.json" \
             --codesigningInformationPath="$CODESIGNING_DIR" \
             --configuration=release_arm64 \

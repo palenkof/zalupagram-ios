@@ -62,8 +62,9 @@ import AlertComponent
 #if canImport(AppCenter)
 import AppCenter
 import AppCenterCrashes
-import ZalupaGram
 #endif
+
+import ZalupaGram
 
 private let handleVoipNotifications = false
 

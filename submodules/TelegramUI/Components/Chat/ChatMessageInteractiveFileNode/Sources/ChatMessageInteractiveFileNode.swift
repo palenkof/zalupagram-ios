@@ -35,6 +35,7 @@ import AnimatedCountLabelNode
 import AudioWaveform
 import DeviceProximity
 import ShimmeringLinkNode
+import ZalupaGram
 
 private struct FetchControls {
     let fetch: (Bool) -> Void
@@ -360,7 +361,8 @@ public final class ChatMessageInteractiveFileNode: ASDisplayNode {
         let premiumConfiguration = PremiumConfiguration.with(appConfiguration: arguments.context.currentAppConfiguration.with { $0 })
         
         let transcriptionText = self.forcedAudioTranscriptionText ?? transcribedText(message: EngineMessage(message))
-        if transcriptionText == nil && !arguments.associatedData.alwaysDisplayTranscribeButton.providedByGroupBoost {
+        // ZalupaGram: recognized on the phone, no Premium needed.
+        if transcriptionText == nil && !arguments.associatedData.alwaysDisplayTranscribeButton.providedByGroupBoost && !zalupaGramLocalTranscription {
             if premiumConfiguration.audioTransciptionTrialCount > 0 {
                 if !arguments.associatedData.isPremium {
                     if self.presentAudioTranscriptionTooltip(finished: false) {
@@ -419,7 +421,7 @@ public final class ChatMessageInteractiveFileNode: ASDisplayNode {
                 self.audioTranscriptionState = .inProgress
                 self.requestUpdateLayout(true)
                 
-                if context.sharedContext.immediateExperimentalUISettings.localTranscription {
+                if context.sharedContext.immediateExperimentalUISettings.localTranscription || zalupaGramLocalTranscription {
                     let appLocale = presentationData.strings.baseLanguageCode
                     
                     let signal: Signal<LocallyTranscribedAudio?, NoError> = context.engine.data.get(TelegramEngine.EngineData.Item.Messages.Message(id: message.id))
@@ -771,7 +773,7 @@ public final class ChatMessageInteractiveFileNode: ASDisplayNode {
                     displayTranscribe = false
                 } else if arguments.message.id.peerId.namespace != Namespaces.Peer.SecretChat && !isViewOnceMessage && !arguments.presentationData.isPreview {
                     let premiumConfiguration = PremiumConfiguration.with(appConfiguration: arguments.context.currentAppConfiguration.with { $0 })
-                    if arguments.associatedData.isPremium || arguments.associatedData.alwaysDisplayTranscribeButton.providedByGroupBoost {
+                    if arguments.associatedData.isPremium || arguments.associatedData.alwaysDisplayTranscribeButton.providedByGroupBoost || zalupaGramLocalTranscription {
                         displayTranscribe = true
                     } else if premiumConfiguration.audioTransciptionTrialCount > 0 {
                         if arguments.incoming {

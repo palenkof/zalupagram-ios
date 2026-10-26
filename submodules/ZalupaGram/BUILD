@@ -35,6 +35,8 @@ swift_library(
         "//submodules/OverlayStatusController:OverlayStatusController",
         "//submodules/ContextUI:ContextUI",
         "//submodules/AppBundle:AppBundle",
+        "//submodules/Media/ConvertOpusToAAC",
+        "//submodules/Media/LocalAudioTranscription",
         "//third-party/ZipArchive:ZipArchive",
     ],
     visibility = [

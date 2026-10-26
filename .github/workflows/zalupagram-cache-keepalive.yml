@@ -1,0 +1,27 @@
+name: Поддержка кеша сборки
+
+# GitHub deletes caches not accessed for 7 days, a restore counts as an access.
+on:
+  schedule:
+    - cron: '17 3 */5 * *'
+  workflow_dispatch:
+
+jobs:
+  touch:
+    runs-on: xcode-27
+    timeout-minutes: 30
+    steps:
+      - name: Restore Bazel cache
+        id: cache
+        uses: actions/cache/restore@v4
+        with:
+          path: /Users/Shared/zg-bazel-cache
+          key: bazel-zalupagram-keepalive
+          restore-keys: |
+            bazel-zalupagram-
+            bazel-
+
+      - name: Report
+        run: |
+          echo "Restored: ${{ steps.cache.outputs.cache-matched-key }}"
+          du -sh /Users/Shared/zg-bazel-cache || true

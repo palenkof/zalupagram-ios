@@ -33,6 +33,8 @@ swift_library(
         "//submodules/ZalupaGramCore",
         "//submodules/TextFormat:TextFormat",
         "//submodules/OverlayStatusController:OverlayStatusController",
+        "//submodules/ContextUI:ContextUI",
+        "//submodules/AppBundle:AppBundle",
         "//third-party/ZipArchive:ZipArchive",
     ],
     visibility = [

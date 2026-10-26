@@ -5,6 +5,8 @@ import SwiftSignalKit
 import TelegramCore
 import TelegramPresentationData
 import AccountContext
+import AppBundle
+import ContextUI
 
 // ZalupaGram fork: "Animate the phrase". The phrase is sent as the first
 // frame of a template, then the message is edited once a frame, like bots
@@ -100,7 +102,7 @@ private final class ZalupaGramAnimation {
     private var index = 0
     private var messageId: EngineMessage.Id?
     private var timer: SwiftSignalKit.Timer?
-    private let deliveredDisposable = MetaDisposable()
+    private var sentTimer: SwiftSignalKit.Timer?
     private let editDisposable = MetaDisposable()
     private(set) var finished = false
 
@@ -113,23 +115,26 @@ private final class ZalupaGramAnimation {
     }
 
     deinit {
-        self.deliveredDisposable.dispose()
         self.editDisposable.dispose()
         self.timer?.invalidate()
+        self.sentTimer?.invalidate()
     }
 
     func start(threadId: Int64?, replyTo: EngineMessageReplySubject?) {
+        // The first frame gets its cloud id when the server accepts it, the
+        // pending message manager remembers it by the correlation id.
         let pendingMessageManager = self.context.account.pendingMessageManager!
         let correlationId = self.correlationId
-        self.deliveredDisposable.set((pendingMessageManager.deliveredMessageEvents(peerId: self.peerId)
-        |> deliverOnMainQueue).start(next: { [weak self] events in
+        let sentTimer = SwiftSignalKit.Timer(timeout: 0.3, repeat: true, completion: { [weak self] in
             guard let self, self.messageId == nil, !self.finished else {
                 return
             }
-            if let id = pendingMessageManager.synchronouslyLookupCorrelationId(correlationId: correlationId), events.contains(where: { $0.id == id }) {
+            if let id = pendingMessageManager.synchronouslyLookupCorrelationId(correlationId: correlationId) {
                 self.sent(id)
             }
-        }))
+        }, queue: Queue.mainQueue())
+        self.sentTimer = sentTimer
+        sentTimer.start()
 
         let first = self.frames[0]
         var attributes: [EngineMessage.Attribute] = []
@@ -138,6 +143,7 @@ private final class ZalupaGramAnimation {
         }
         let message: EnqueueMessage = .message(text: first.0, attributes: attributes, inlineStickers: [:], mediaReference: nil, threadId: threadId, replyToMessageId: replyTo, replyToStoryId: nil, localGroupingKey: nil, correlationId: correlationId, bubbleUpEmojiOrStickersets: [])
         let _ = enqueueMessages(account: self.context.account, peerId: self.peerId, messages: [message]).start()
+        Logger.shared.log("ZalupaGram", "animation: first of \(self.frames.count) frames enqueued in \(self.peerId)")
 
         // Nothing was sent, for example writing is not allowed in the chat.
         self.schedule(after: sendTimeout)
@@ -153,8 +159,10 @@ private final class ZalupaGramAnimation {
     }
 
     private func sent(_ id: EngineMessage.Id) {
+        Logger.shared.log("ZalupaGram", "animation: sent as \(id)")
         self.messageId = id
-        self.deliveredDisposable.set(nil)
+        self.sentTimer?.invalidate()
+        self.sentTimer = nil
         self.index = 0
         self.schedule(after: self.delay)
     }
@@ -188,6 +196,7 @@ private final class ZalupaGramAnimation {
                 return
             }
             guard let result else {
+                Logger.shared.log("ZalupaGram", "animation: message \(messageId) is gone")
                 self.finish()
                 return
             }
@@ -198,10 +207,11 @@ private final class ZalupaGramAnimation {
                     self.schedule(after: self.delay)
                 }
             }
-        }, error: { [weak self] _ in
+        }, error: { [weak self] error in
             guard let self else {
                 return
             }
+            Logger.shared.log("ZalupaGram", "animation: edit \(self.index) of \(messageId) failed: \(error)")
             if last {
                 self.finish()
             } else {
@@ -217,9 +227,11 @@ private final class ZalupaGramAnimation {
             return
         }
         self.finished = true
+        Logger.shared.log("ZalupaGram", "animation: finished at frame \(self.index) of \(self.frames.count), id \(String(describing: self.messageId))")
         self.timer?.invalidate()
         self.timer = nil
-        self.deliveredDisposable.set(nil)
+        self.sentTimer?.invalidate()
+        self.sentTimer = nil
         self.onFinish(self)
     }
 }
@@ -260,82 +272,127 @@ public func zalupaGramAnimationTooManyText(strings: PresentationStrings) -> Stri
     return zalupaGramIsRussian(strings) ? "Подождите, пока закончатся предыдущие анимации." : "Wait for the previous animations to finish."
 }
 
-// The list of templates with their durations, pinned ones first.
-public func zalupaGramPresentAnimationPicker(presentationData: PresentationData, phrase: String, present: @escaping (ViewController) -> Void, chosen: @escaping (Int) -> Void) {
-    let ru = zalupaGramIsRussian(presentationData.strings)
-    let templates = zalupaGramAnimationTemplates(ru: ru)
-    let actionSheet = ActionSheetController(presentationData: presentationData)
-
-    let title: (Int) -> String = { index in
-        let item = templates[index]
-        // Some templates depend on the phrase length.
-        let count = item.frames(phrase).count + 1
-        return item.icon + "  " + item.title + "  •  " + durationText(animationDuration(framesCount: count), ru: ru)
-    }
-
-    var items: [ActionSheetItem] = []
-    items.append(ActionSheetTextItem(title: (ru ? "Анимировать фразу" : "Animate the phrase") + " · " + formatSeconds(zalupaGramAnimationFrameDelay, ru: ru) + (ru ? " на кадр" : " per frame")))
-    for id in animationPins {
-        if let index = templates.firstIndex(where: { $0.id == id }) {
-            items.append(ActionSheetButtonItem(title: "📌 " + title(index), action: { [weak actionSheet] in
-                actionSheet?.dismissAnimated()
-                chosen(index)
-            }))
-        }
-    }
-    for category in ZalupaGramAnimationCategory.allCases {
-        items.append(ActionSheetTextItem(title: zalupaGramAnimationCategoryTitle(category, ru: ru)))
-        for index in 0 ..< templates.count where templates[index].category == category {
-            items.append(ActionSheetButtonItem(title: title(index), action: { [weak actionSheet] in
-                actionSheet?.dismissAnimated()
-                chosen(index)
-            }))
-        }
-    }
-    items.append(ActionSheetButtonItem(title: ru ? "📌 Закрепить наверху…" : "📌 Pin to the top…", action: { [weak actionSheet] in
-        actionSheet?.dismissAnimated()
-        presentPinsPicker(presentationData: presentationData, templates: templates, ru: ru, present: present)
-    }))
-    items.append(ActionSheetButtonItem(title: (ru ? "⏱ Время на кадр: " : "⏱ Time per frame: ") + formatSeconds(zalupaGramAnimationFrameDelay, ru: ru), action: { [weak actionSheet] in
-        actionSheet?.dismissAnimated()
-        presentFrameDelayPicker(presentationData: presentationData, present: present, done: {
-            zalupaGramPresentAnimationPicker(presentationData: presentationData, phrase: phrase, present: present, chosen: chosen)
-        })
-    }))
-
-    actionSheet.setItemGroups([
-        ActionSheetItemGroup(items: items),
-        ActionSheetItemGroup(items: [
-            ActionSheetButtonItem(title: presentationData.strings.Common_Cancel, color: .accent, font: .bold, action: { [weak actionSheet] in
-                actionSheet?.dismissAnimated()
-            })
-        ])
-    ])
-    present(actionSheet)
+private func emojiIcon(_ emoji: String) -> UIImage? {
+    return generateImage(CGSize(width: 24.0, height: 24.0), rotatedContext: { size, context in
+        context.clear(CGRect(origin: CGPoint(), size: size))
+        UIGraphicsPushContext(context)
+        let string = NSAttributedString(string: emoji, attributes: [.font: UIFont.systemFont(ofSize: 19.0)])
+        let bounds = string.boundingRect(with: size, options: .usesLineFragmentOrigin, context: nil)
+        string.draw(at: CGPoint(x: floor((size.width - bounds.width) / 2.0), y: floor((size.height - bounds.height) / 2.0)))
+        UIGraphicsPopContext()
+    })
 }
 
-private func presentPinsPicker(presentationData: PresentationData, templates: [ZalupaGramAnimationTemplate], ru: Bool, present: @escaping (ViewController) -> Void) {
-    let actionSheet = ActionSheetController(presentationData: presentationData)
-    var items: [ActionSheetItem] = []
-    items.append(ActionSheetTextItem(title: ru ? "Закреплённые идут первыми в списке" : "Pinned ones go first in the list"))
-    let pins = animationPins
-    for item in templates {
-        let mark = pins.contains(item.id) ? "✅ " : "▫️ "
-        let id = item.id
-        items.append(ActionSheetButtonItem(title: mark + item.icon + "  " + item.title, action: { [weak actionSheet] in
-            actionSheet?.dismissAnimated()
-            togglePin(id)
+private func categoryParts(_ category: ZalupaGramAnimationCategory, ru: Bool) -> (String, String) {
+    let title = zalupaGramAnimationCategoryTitle(category, ru: ru)
+    guard let space = title.firstIndex(of: " ") else {
+        return ("", title)
+    }
+    return (String(title[..<space]), String(title[title.index(after: space)...]))
+}
+
+// The menu at the send button: pinned templates first, then categories that
+// open as submenus, then pins and the time per frame.
+public func zalupaGramAnimationMenuItems(presentationData: PresentationData, phrase: String, chosen: @escaping (Int) -> Void) -> [ContextMenuItem] {
+    let ru = zalupaGramIsRussian(presentationData.strings)
+    let templates = zalupaGramAnimationTemplates(ru: ru)
+    let strings = presentationData.strings
+
+    let backItem: (@escaping (ContextControllerProtocol?) -> Void) -> ContextMenuItem = { back in
+        return .action(ContextMenuActionItem(text: strings.Common_Back, icon: { theme in
+            return generateTintedImage(image: UIImage(bundleImageName: "Chat/Context Menu/Back"), color: theme.contextMenu.primaryColor)
+        }, iconPosition: .left, action: { c, _ in
+            back(c)
         }))
     }
-    actionSheet.setItemGroups([
-        ActionSheetItemGroup(items: items),
-        ActionSheetItemGroup(items: [
-            ActionSheetButtonItem(title: presentationData.strings.Common_Cancel, color: .accent, font: .bold, action: { [weak actionSheet] in
-                actionSheet?.dismissAnimated()
+    let templateItem: (Int) -> ContextMenuItem = { index in
+        let item = templates[index]
+        // Some templates depend on the phrase length.
+        let duration = durationText(animationDuration(framesCount: item.frames(phrase).count + 1), ru: ru)
+        return .action(ContextMenuActionItem(text: item.title, textLayout: .secondLineWithValue(duration), icon: { _ in
+            return emojiIcon(item.icon)
+        }, action: { c, _ in
+            c?.dismiss(completion: {
+                chosen(index)
             })
-        ])
-    ])
-    present(actionSheet)
+        }))
+    }
+
+    func mainItems() -> [ContextMenuItem] {
+        var items: [ContextMenuItem] = []
+        let pins = animationPins
+        for id in pins {
+            if let index = templates.firstIndex(where: { $0.id == id }) {
+                items.append(templateItem(index))
+            }
+        }
+        if !items.isEmpty {
+            items.append(.separator)
+        }
+        for category in ZalupaGramAnimationCategory.allCases {
+            let (emoji, title) = categoryParts(category, ru: ru)
+            items.append(.action(ContextMenuActionItem(text: title, icon: { _ in
+                return emojiIcon(emoji)
+            }, action: { c, _ in
+                var subItems: [ContextMenuItem] = [backItem({ c in
+                    c?.popItems()
+                }), .separator]
+                for index in 0 ..< templates.count where templates[index].category == category {
+                    subItems.append(templateItem(index))
+                }
+                c?.pushItems(items: .single(ContextController.Items(content: .list(subItems))))
+            })))
+        }
+        items.append(.separator)
+        items.append(.action(ContextMenuActionItem(text: ru ? "Закрепить наверху" : "Pin to the top", icon: { _ in
+            return emojiIcon("📌")
+        }, action: { c, _ in
+            c?.setItems(.single(ContextController.Items(content: .list(pinItems()))), minHeight: nil, animated: true)
+        })))
+        items.append(.action(ContextMenuActionItem(text: ru ? "Время на кадр" : "Time per frame", textLayout: .secondLineWithValue(formatSeconds(zalupaGramAnimationFrameDelay, ru: ru)), icon: { _ in
+            return emojiIcon("⏱")
+        }, action: { c, _ in
+            c?.setItems(.single(ContextController.Items(content: .list(delayItems()))), minHeight: nil, animated: true)
+        })))
+        return items
+    }
+
+    func pinItems() -> [ContextMenuItem] {
+        var items: [ContextMenuItem] = [backItem({ c in
+            c?.setItems(.single(ContextController.Items(content: .list(mainItems()))), minHeight: nil, animated: true)
+        }), .separator]
+        let pins = animationPins
+        for item in templates {
+            let id = item.id
+            let isPinned = pins.contains(id)
+            items.append(.action(ContextMenuActionItem(text: item.icon + "  " + item.title, icon: { theme in
+                return isPinned ? generateTintedImage(image: UIImage(bundleImageName: "Chat/Context Menu/Check"), color: theme.contextMenu.primaryColor) : nil
+            }, action: { c, _ in
+                togglePin(id)
+                c?.setItems(.single(ContextController.Items(content: .list(pinItems()))), minHeight: nil, animated: false)
+            })))
+        }
+        return items
+    }
+
+    func delayItems() -> [ContextMenuItem] {
+        var items: [ContextMenuItem] = [backItem({ c in
+            c?.setItems(.single(ContextController.Items(content: .list(mainItems()))), minHeight: nil, animated: true)
+        }), .separator]
+        let current = zalupaGramAnimationFrameDelay
+        for value in frameDelayOptions {
+            let isCurrent = abs(value - current) < 0.05
+            items.append(.action(ContextMenuActionItem(text: formatSeconds(value, ru: ru), icon: { theme in
+                return isCurrent ? generateTintedImage(image: UIImage(bundleImageName: "Chat/Context Menu/Check"), color: theme.contextMenu.primaryColor) : nil
+            }, action: { c, _ in
+                zalupaGramAnimationFrameDelay = value
+                c?.setItems(.single(ContextController.Items(content: .list(mainItems()))), minHeight: nil, animated: true)
+            })))
+        }
+        return items
+    }
+
+    return mainItems()
 }
 
 func presentFrameDelayPicker(presentationData: PresentationData, present: @escaping (ViewController) -> Void, done: @escaping () -> Void) {

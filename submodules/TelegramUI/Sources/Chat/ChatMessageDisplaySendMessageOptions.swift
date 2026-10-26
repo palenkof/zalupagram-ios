@@ -229,10 +229,10 @@ func chatMessageDisplaySendMessageOptions(selfController: ChatControllerImpl, no
             }
 
             // ZalupaGram: "Animate the phrase" in this menu, for text messages only.
-            let zalupaGramInput = selfController.presentationInterfaceState.interfaceState.effectiveInputState.inputText
+            let zalupaGramInput = zalupaGramInputText(selfController: selfController)
             if mediaPreview == nil, selfController.presentationInterfaceState.subject == nil, (selfController.presentationInterfaceState.interfaceState.forwardMessageIds ?? []).isEmpty, !zalupaGramInput.string.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                ZalupaGramSendMenu.animate = { [weak selfController] in
-                    zalupaGramAnimateInput(selfController: selfController)
+                ZalupaGramSendMenu.animate = { [weak selfController, weak node] in
+                    zalupaGramAnimateInput(selfController: selfController, sourceView: node?.view)
                 }
             } else {
                 ZalupaGramSendMenu.animate = nil
@@ -332,18 +332,24 @@ func chatMessageDisplaySendMessageOptions(selfController: ChatControllerImpl, no
     })
 }
 
-// ZalupaGram: picks a template and starts the animation of the input text.
-private func zalupaGramAnimateInput(selfController: ChatControllerImpl?) {
-    guard let selfController, let peerId = selfController.presentationInterfaceState.chatLocation.peerId else {
+// ZalupaGram: the text in the input field, the interface state can lag behind it.
+private func zalupaGramInputText(selfController: ChatControllerImpl) -> NSAttributedString {
+    if let textInputPanelNode = selfController.chatDisplayNode.textInputPanelNode {
+        return textInputPanelNode.inputTextState.inputText
+    }
+    return selfController.presentationInterfaceState.interfaceState.effectiveInputState.inputText
+}
+
+// ZalupaGram: the template menu at the send button, then the animation of the input text.
+private func zalupaGramAnimateInput(selfController: ChatControllerImpl?, sourceView: UIView?) {
+    guard let selfController, let sourceView, let peerId = selfController.presentationInterfaceState.chatLocation.peerId else {
         return
     }
-    let inputText = selfController.presentationInterfaceState.interfaceState.effectiveInputState.inputText
+    let inputText = zalupaGramInputText(selfController: selfController)
     let phrase = inputText.string
     let entities = generateChatInputTextEntities(inputText)
     let presentationData = selfController.presentationData
-    zalupaGramPresentAnimationPicker(presentationData: presentationData, phrase: phrase, present: { [weak selfController] controller in
-        selfController?.present(controller, in: .window(.root))
-    }, chosen: { [weak selfController] index in
+    let items = zalupaGramAnimationMenuItems(presentationData: presentationData, phrase: phrase, chosen: { [weak selfController] index in
         guard let selfController else {
             return
         }
@@ -370,5 +376,13 @@ private func zalupaGramAnimateInput(selfController: ChatControllerImpl?) {
             return
         }
         selfController.present(UndoOverlayController(presentationData: presentationData, content: .info(title: nil, text: text, timeout: nil, customUndoText: nil), elevatedLayout: false, action: { _ in return false }), in: .current)
+    })
+    // After the send menu has gone.
+    Queue.mainQueue().after(0.25, { [weak selfController, weak sourceView] in
+        guard let selfController, let sourceView else {
+            return
+        }
+        let contextController = makeContextController(presentationData: presentationData, source: .reference(ChatControllerContextReferenceContentSource(controller: selfController, sourceView: sourceView, insets: UIEdgeInsets(), actionsOnTop: true)), items: .single(ContextController.Items(content: .list(items))), gesture: nil)
+        selfController.presentInGlobalOverlay(contextController)
     })
 }

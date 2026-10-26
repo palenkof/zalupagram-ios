@@ -7449,21 +7449,17 @@ public final class StoryItemSetContainerComponent: Component {
                             self.beginPictureInPicture()
                         })))
                     } else if !component.slice.item.storyItem.isForwardingDisabled {
+                        // ZalupaGram: saving stories without Premium, if the author allows it.
                         let saveText: String = component.strings.Story_Context_SaveToGallery
                         items.append(.action(ContextMenuActionItem(text: saveText, icon: { theme in
-                            return generateTintedImage(image: UIImage(bundleImageName: accountUser.isPremium ? "Chat/Context Menu/Download" : "Chat/Context Menu/DownloadLocked"), color: theme.contextMenu.primaryColor)
+                            return generateTintedImage(image: UIImage(bundleImageName: "Chat/Context Menu/Download"), color: theme.contextMenu.primaryColor)
                         }, action: { [weak self] _, a in
                             a(.default)
                             
                             guard let self else {
                                 return
                             }
-                            
-                            if accountUser.isPremium {
-                                self.requestSave()
-                            } else {
-                                self.presentSaveUpgradeScreen()
-                            }
+                            self.requestSave()
                         })))
                     }
                     

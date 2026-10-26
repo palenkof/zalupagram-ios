@@ -28,6 +28,9 @@ swift_library(
         "//submodules/TelegramCore:TelegramCore",
         "//submodules/TelegramPresentationData:TelegramPresentationData",
         "//submodules/AccountContext:AccountContext",
+        "//submodules/ItemListUI:ItemListUI",
+        "//submodules/PresentationDataUtils:PresentationDataUtils",
+        "//submodules/ZalupaGramCore",
         "//third-party/ZipArchive:ZipArchive",
     ],
     visibility = [

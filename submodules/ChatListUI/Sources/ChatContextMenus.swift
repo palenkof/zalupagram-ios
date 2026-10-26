@@ -15,6 +15,8 @@ import TelegramPresentationData
 import TelegramStringFormatting
 import ChatTimerScreen
 import NotificationPeerExceptionController
+import ZalupaGram
+import ZalupaGramCore
 
 func archiveContextMenuItems(context: AccountContext, group: EngineChatList.Group, chatListController: ChatListControllerImpl?) -> Signal<[ContextMenuItem], NoError> {
     let presentationData = context.sharedContext.currentPresentationData.with({ $0 })
@@ -469,6 +471,16 @@ func chatContextMenuItems(context: AccountContext, peerId: EnginePeer.Id, promoI
                                         f(.default)
                                     })
                                 })))
+                                
+                                // ZalupaGram: ghost mode exception for this chat.
+                                if ZalupaGramCore.option(.ghostRead) || ZalupaGramCore.option(.ghostTyping) {
+                                    let isException = ZalupaGramCore.isGhostException(peerId: peerId.toInt64())
+                                    let text = isException ? ZalupaGram.tr(strings, "👻 Ghost mode in this chat", "👻 Режим призрака в этом чате") : ZalupaGram.tr(strings, "👻 Read this chat as usual", "👻 Читать этот чат как обычно")
+                                    items.append(.action(ContextMenuActionItem(text: text, icon: { theme in generateTintedImage(image: UIImage(bundleImageName: "Chat/Context Menu/MarkAsRead"), color: theme.contextMenu.primaryColor) }, action: { _, f in
+                                        ZalupaGramCore.setGhostException(peerId: peerId.toInt64(), !isException)
+                                        f(.default)
+                                    })))
+                                }
                             }
                         } else {
                             if case .search = source {

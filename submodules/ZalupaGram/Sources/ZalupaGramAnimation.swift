@@ -70,7 +70,7 @@ private func togglePin(_ id: String) {
     animationPins = pins
 }
 
-private func formatSeconds(_ value: Double, ru: Bool) -> String {
+func formatSeconds(_ value: Double, ru: Bool) -> String {
     var text = String(format: "%.1f", value)
     if text.hasSuffix(".0") {
         text.removeLast(2)
@@ -298,7 +298,7 @@ public func zalupaGramPresentAnimationPicker(presentationData: PresentationData,
     }))
     items.append(ActionSheetButtonItem(title: (ru ? "⏱ Время на кадр: " : "⏱ Time per frame: ") + formatSeconds(zalupaGramAnimationFrameDelay, ru: ru), action: { [weak actionSheet] in
         actionSheet?.dismissAnimated()
-        presentDelayPicker(presentationData: presentationData, ru: ru, present: present, done: {
+        presentFrameDelayPicker(presentationData: presentationData, present: present, done: {
             zalupaGramPresentAnimationPicker(presentationData: presentationData, phrase: phrase, present: present, chosen: chosen)
         })
     }))
@@ -338,7 +338,8 @@ private func presentPinsPicker(presentationData: PresentationData, templates: [Z
     present(actionSheet)
 }
 
-private func presentDelayPicker(presentationData: PresentationData, ru: Bool, present: @escaping (ViewController) -> Void, done: @escaping () -> Void) {
+func presentFrameDelayPicker(presentationData: PresentationData, present: @escaping (ViewController) -> Void, done: @escaping () -> Void) {
+    let ru = zalupaGramIsRussian(presentationData.strings)
     let actionSheet = ActionSheetController(presentationData: presentationData)
     var items: [ActionSheetItem] = []
     items.append(ActionSheetTextItem(title: ru ? "Кадров столько же, меняется только длительность" : "The frames stay the same, only the duration changes"))

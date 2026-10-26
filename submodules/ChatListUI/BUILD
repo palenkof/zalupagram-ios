@@ -12,6 +12,8 @@ swift_library(
         "-warnings-as-errors",
     ],
     deps = [
+        "//submodules/ZalupaGram",
+        "//submodules/ZalupaGramCore",
         "//submodules/SSignalKit/SwiftSignalKit:SwiftSignalKit",
         "//submodules/LottieSettings:LottieSettings",
         "//submodules/AsyncDisplayKit:AsyncDisplayKit",

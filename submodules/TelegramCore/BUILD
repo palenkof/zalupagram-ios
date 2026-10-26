@@ -30,6 +30,7 @@ swift_library(
         "//submodules/TelegramCore/FlatBuffers",
         "//submodules/TelegramCore/FlatSerialization",
         "//submodules/MurMurHash32",
+        "//submodules/ZalupaGramCore",
     ],
     visibility = [
         "//visibility:public",

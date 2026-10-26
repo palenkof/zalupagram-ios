@@ -197,6 +197,7 @@ enum PeerInfoSettingsSection {
     case stars
     case ton
     case wallet
+    case zalupaGram // ZalupaGram
 }
 
 enum PeerInfoReportType {

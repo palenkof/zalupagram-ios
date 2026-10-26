@@ -43,7 +43,9 @@ func settingsItems(data: PeerInfoScreenData?, context: AccountContext, presentat
     }
     
     // ZalupaGram: the fork name on top of Settings.
-    items[.zalupaGram]!.append(PeerInfoScreenDisclosureItem(id: 0, label: .text(ZalupaGram.version), text: ZalupaGram.title, icon: ZalupaGram.settingsIcon, hasArrow: false, action: nil))
+    items[.zalupaGram]!.append(PeerInfoScreenDisclosureItem(id: 0, label: .text(ZalupaGram.version), text: ZalupaGram.title, icon: ZalupaGram.settingsIcon, action: {
+        interaction.openSettings(.zalupaGram)
+    }))
     
     let setPhotoTitle: String
     if let peer = data.peer, !peer.profileImageRepresentations.isEmpty {

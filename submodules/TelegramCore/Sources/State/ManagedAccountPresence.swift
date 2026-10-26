@@ -2,6 +2,7 @@ import Foundation
 internal import TelegramApi
 import Postbox
 import SwiftSignalKit
+import ZalupaGramCore
 import MtProtoKit
 
 private typealias SignalKitTimer = SwiftSignalKit.Timer
@@ -43,6 +44,8 @@ private final class AccountPresenceManagerImpl {
     }
     
     private func updatePresence(_ isOnline: Bool) {
+        // ZalupaGram: ghost mode, always offline.
+        let isOnline = isOnline && !ZalupaGramCore.ghostOnline
         let request: Signal<Api.Bool, MTRpcError>
         if isOnline {
             let timer = SignalKitTimer(timeout: 30.0, repeat: false, completion: { [weak self] in

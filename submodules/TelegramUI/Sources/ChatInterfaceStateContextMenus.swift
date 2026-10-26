@@ -39,6 +39,7 @@ import ChatMessageBubbleItemNode
 import AdsInfoScreen
 import AdsReportScreen
 import WalletContext
+import ZalupaGram
  
 private struct MessageContextMenuData {
     let starStatus: Bool?
@@ -1967,6 +1968,49 @@ func contextMenuForChatPresentationInterfaceState(chatPresentationInterfaceState
                 return generateTintedImage(image: UIImage(bundleImageName: "Chat/Context Menu/Restrict"), color: theme.actionSheet.destructiveActionTextColor)
             }, action: { controller, f in
                 interfaceInteraction.blockMessageAuthor(message, controller)
+            })))
+        }
+        
+        // ZalupaGram: exact times, IDs and where the message was forwarded from.
+        if message.id.namespace == Namespaces.Message.Cloud {
+            actions.append(.action(ContextMenuActionItem(text: zalupaGramMessageDetailsTitle(strings: chatPresentationInterfaceState.strings), icon: { theme in
+                return generateTintedImage(image: UIImage(bundleImageName: "Chat/Context Menu/Info"), color: theme.actionSheet.primaryTextColor)
+            }, action: { c, _ in
+                var editDate: Int32?
+                for attribute in message.attributes {
+                    if let attribute = attribute as? EditedMessageAttribute, attribute.date != 0 {
+                        editDate = attribute.date
+                    }
+                }
+                var forwardFrom: String?
+                if let forwardInfo = message.forwardInfo {
+                    if let author = forwardInfo.author ?? forwardInfo.source {
+                        let peer = EnginePeer(author)
+                        forwardFrom = peer.compactDisplayTitle + " (" + zalupaGramBotApiId(rawId: author.id.id._internalGetInt64Value(), isUser: author.id.namespace == Namespaces.Peer.CloudUser, isChannel: author.id.namespace == Namespaces.Peer.CloudChannel) + ")"
+                    } else if let authorSignature = forwardInfo.authorSignature {
+                        forwardFrom = authorSignature
+                    }
+                }
+                let peerId = message.id.peerId
+                let details = ZalupaGramMessageDetails(
+                    messageId: message.id.id,
+                    chatId: zalupaGramBotApiId(rawId: peerId.id._internalGetInt64Value(), isUser: peerId.namespace == Namespaces.Peer.CloudUser, isChannel: peerId.namespace == Namespaces.Peer.CloudChannel),
+                    date: message.timestamp,
+                    editDate: editDate,
+                    forwardFrom: forwardFrom,
+                    forwardDate: message.forwardInfo?.date,
+                    forwardMessageId: message.forwardInfo?.sourceMessageId?.id
+                )
+                c?.dismiss(completion: {
+                    let presentationData = context.sharedContext.currentPresentationData.with { $0 }
+                    let text = zalupaGramMessageDetailsText(details, strings: presentationData.strings)
+                    controllerInteraction.presentController(textAlertController(context: context, title: zalupaGramMessageDetailsTitle(strings: presentationData.strings), text: text, actions: [
+                        TextAlertAction(type: .genericAction, title: presentationData.strings.Conversation_ContextMenuCopy, action: {
+                            UIPasteboard.general.string = text
+                        }),
+                        TextAlertAction(type: .defaultAction, title: presentationData.strings.Common_OK, action: {})
+                    ]), nil)
+                })
             })))
         }
         

@@ -4,7 +4,8 @@ import TelegramCore
 import TelegramUIPreferences
 import AccountContext
 
-public let maximumNumberOfAccounts = 3
+// ZalupaGram: up to 10 accounts without Premium.
+public let maximumNumberOfAccounts = 10
 public let maximumPremiumNumberOfAccounts = 4
 
 public func activeAccountsAndPeers(context: AccountContext, includePrimary: Bool = false) -> Signal<((AccountContext, EnginePeer)?, [(AccountContext, EnginePeer, Int32)]), NoError> {

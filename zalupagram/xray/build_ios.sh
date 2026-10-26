@@ -14,18 +14,13 @@ rm -rf "$WORK" "$OUT"
 mkdir -p "$WORK"
 git clone --depth 1 --branch "$TAG" https://github.com/XTLS/Xray-core.git "$WORK/Xray-core"
 
-cp "$HERE/main.go" "$WORK/main.go"
-cd "$WORK"
-cat > go.mod <<EOF
-module zalupagram/xray
-
-go 1.25
-
-require github.com/xtls/xray-core v0.0.0
-
-replace github.com/xtls/xray-core => ./Xray-core
-EOF
-go mod tidy
+# Built as a package of Xray-core itself: its go.sum pins every dependency,
+# so nothing is looked up in sum.golang.org (not reachable from the runner).
+mkdir -p "$WORK/Xray-core/zgxray"
+cp "$HERE/main.go" "$WORK/Xray-core/zgxray/main.go"
+cd "$WORK/Xray-core"
+export GOSUMDB=off
+export GOFLAGS=-mod=mod
 
 SDK="$(xcrun --sdk iphoneos --show-sdk-path)"
 export GOOS=ios
@@ -34,7 +29,7 @@ export CGO_ENABLED=1
 export CC="$(xcrun --sdk iphoneos -f clang)"
 export CGO_CFLAGS="-isysroot $SDK -arch arm64 -miphoneos-version-min=15.0"
 export CGO_LDFLAGS="-isysroot $SDK -arch arm64 -miphoneos-version-min=15.0"
-go build -buildmode=c-archive -trimpath -ldflags="-s -w -buildid=" -o "$WORK/libzgxray.a" .
+go build -buildmode=c-archive -trimpath -ldflags="-s -w -buildid=" -o "$WORK/libzgxray.a" ./zgxray
 
 mkdir -p "$WORK/include"
 cp "$WORK/libzgxray.h" "$WORK/include/zgxray.h"

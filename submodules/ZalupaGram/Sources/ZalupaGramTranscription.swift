@@ -3,6 +3,8 @@ import AVFoundation
 import SwiftSignalKit
 import TelegramCore
 import AccountContext
+import TelegramPresentationData
+import PresentationDataUtils
 import ConvertOpusToAAC
 import LocalAudioTranscription
 import ZalupaGramCore
@@ -125,26 +127,67 @@ private func transcribeChunks(_ paths: [String], appLocale: String) -> Signal<Lo
     }
 }
 
-// Emits false if the media is not loaded yet or recognition failed.
+private enum TranscriptionFailure {
+    case notLoaded
+    case noSound
+    case notRecognized
+}
+
+private final class TranscriptionFailureBox {
+    var value: TranscriptionFailure = .notRecognized
+}
+
+private func presentTranscriptionFailure(_ failure: TranscriptionFailure, context: AccountContext) {
+    let presentationData = context.sharedContext.currentPresentationData.with { $0 }
+    let ru = zalupaGramIsRussian(presentationData.strings)
+    let text: String
+    switch failure {
+    case .notLoaded:
+        text = ru ? "Не удалось загрузить сообщение для расшифровки." : "Couldn't load the message to transcribe it."
+    case .noSound:
+        text = ru ? "В этом кружке нет звука." : "This video message has no sound."
+    case .notRecognized:
+        text = ru ? "iOS не распознал речь. Проверьте, что в Настройках iPhone разрешено распознавание речи для ZalupaGram и включена диктовка." : "iOS didn't recognize speech. Check that speech recognition is allowed for ZalupaGram and dictation is on in iPhone Settings."
+    }
+    context.sharedContext.mainWindow?.present(textAlertController(context: context, title: nil, text: text, actions: [TextAlertAction(type: .defaultAction, title: presentationData.strings.Common_OK, action: {})]), on: .root)
+}
+
+// Emits false if the media couldn't be loaded or recognition failed, the
+// reason is shown to the user.
 public func zalupaGramTranscribeLocally(context: AccountContext, messageId: EngineMessage.Id, appLocale: String) -> Signal<Bool, NoError> {
+    let failure = TranscriptionFailureBox()
     return context.engine.data.get(TelegramEngine.EngineData.Item.Messages.Message(id: messageId))
     |> mapToSignal { message -> Signal<(String, Bool)?, NoError> in
         guard let message, let file = message.media.first(where: { $0 is TelegramMediaFile }) as? TelegramMediaFile else {
             return .single(nil)
         }
-        return context.engine.resources.data(id: EngineMediaResource.Id(file.resource.id))
+        // A round video that only played may be loaded partly: load all of it.
+        let fetchDisposable = context.engine.resources.fetch(reference: .media(media: .message(message: MessageReference(message._asMessage()), media: file), resource: file.resource), userLocation: .peer(message.id.peerId), userContentType: MediaResourceUserContentType(file: file)).startStandalone()
+        return context.engine.resources.data(resource: EngineMediaResource(file.resource))
+        |> filter { $0.isComplete }
         |> take(1)
         |> map { data -> (String, Bool)? in
-            return data.isComplete ? (data.path, file.isInstantVideo) : nil
+            return (data.path, file.isInstantVideo)
+        }
+        |> timeout(60.0, queue: Queue.concurrentDefaultQueue(), alternate: .single(nil))
+        |> afterDisposed {
+            fetchDisposable.dispose()
         }
     }
     |> mapToSignal { value -> Signal<[String]?, NoError> in
         guard let (path, isVideo) = value else {
             Logger.shared.log("ZalupaGram", "transcription: \(messageId) media is not loaded")
+            failure.value = .notLoaded
             return .single(nil)
         }
         if isVideo {
             return audioChunks(path: path, isVideo: true)
+            |> map { paths -> [String]? in
+                if paths == nil {
+                    failure.value = .noSound
+                }
+                return paths
+            }
         }
         return convertOpusToAAC(sourcePath: path, allocateTempFile: {
             return EngineTempBox.shared.tempFile(fileName: "audio.m4a").path
@@ -164,7 +207,11 @@ public func zalupaGramTranscribeLocally(context: AccountContext, messageId: Engi
     }
     |> mapToSignal { result -> Signal<Bool, NoError> in
         guard let result else {
-            Logger.shared.log("ZalupaGram", "transcription: \(messageId) recognition failed")
+            Logger.shared.log("ZalupaGram", "transcription: \(messageId) failed: \(failure.value)")
+            let reason = failure.value
+            Queue.mainQueue().async {
+                presentTranscriptionFailure(reason, context: context)
+            }
             return .single(false)
         }
         return context.engine.messages.storeLocallyTranscribedAudio(messageId: messageId, text: result.text, isFinal: result.isFinal, error: nil)

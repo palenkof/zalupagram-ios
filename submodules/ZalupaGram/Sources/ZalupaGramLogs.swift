@@ -76,35 +76,73 @@ private func makeLogsArchive(logs: [(String, String)]) -> String? {
     return zipPath
 }
 
+// Set by AppDelegate. The files are read directly: Logger.collectLogs()
+// waits in the logger queue behind all pending writes and never came back.
+public var zalupaGramLogsDirectory: String?
+
+private func listLogs() -> [(String, String)] {
+    guard let directory = zalupaGramLogsDirectory, let urls = try? FileManager.default.contentsOfDirectory(at: URL(fileURLWithPath: directory), includingPropertiesForKeys: [.creationDateKey], options: []) else {
+        return []
+    }
+    var files: [(Date, String, String)] = []
+    for url in urls where url.lastPathComponent.hasPrefix("log-") {
+        let date = (try? url.resourceValues(forKeys: [.creationDateKey]))?.creationDate ?? Date.distantPast
+        files.append((date, url.lastPathComponent, url.path))
+    }
+    files.sort(by: { $0.0 < $1.0 })
+    return files.map { ($0.1, $0.2) }
+}
+
+private final class LogsState {
+    var finished = false
+}
+
 public func zalupaGramShareLogs(context: AccountContext) {
     let presentationData = context.sharedContext.currentPresentationData.with { $0 }
+    let ru = zalupaGramIsRussian(presentationData.strings)
     let progress = OverlayStatusController(theme: presentationData.theme, type: .loading(cancelled: nil))
     context.sharedContext.mainWindow?.present(progress, on: .root)
-    let _ = (Logger.shared.collectLogs()
-    |> deliverOn(Queue.concurrentDefaultQueue())
-    |> map { logs -> String? in
-        return makeLogsArchive(logs: logs)
+    let state = LogsState()
+    let alert: (String) -> Void = { text in
+        context.sharedContext.mainWindow?.present(textAlertController(context: context, title: nil, text: text, actions: [TextAlertAction(type: .defaultAction, title: presentationData.strings.Common_OK, action: {})]), on: .root)
     }
-    |> deliverOnMainQueue).start(next: { path in
+
+    Queue.mainQueue().after(60.0, {
+        if state.finished {
+            return
+        }
+        state.finished = true
         progress.dismiss()
-        guard let window = context.sharedContext.mainWindow else {
-            return
-        }
-        guard let path = path else {
-            let ru = zalupaGramIsRussian(presentationData.strings)
-            window.present(textAlertController(context: context, title: nil, text: ru ? "Не удалось собрать логи." : "Couldn't collect the logs.", actions: [TextAlertAction(type: .defaultAction, title: presentationData.strings.Common_OK, action: {})]), on: .root)
-            return
-        }
-        // After the progress has gone, a native sheet doesn't show over it.
-        Queue.mainQueue().after(0.3, {
-            let activityController = UIActivityViewController(activityItems: [URL(fileURLWithPath: path)], applicationActivities: nil)
-            if let popover = activityController.popoverPresentationController {
-                let view = window.hostView.containerView
-                popover.sourceView = view
-                popover.sourceRect = CGRect(x: view.bounds.midX, y: view.bounds.midY, width: 1.0, height: 1.0)
-                popover.permittedArrowDirections = []
-            }
-            window.presentNative(activityController)
-        })
+        alert(ru ? "Логи собираются слишком долго, попробуйте ещё раз." : "Collecting the logs takes too long, try again.")
     })
+
+    DispatchQueue.global(qos: .userInitiated).async {
+        let logs = listLogs()
+        let path = makeLogsArchive(logs: logs)
+        Queue.mainQueue().async {
+            if state.finished {
+                return
+            }
+            state.finished = true
+            progress.dismiss()
+            guard let window = context.sharedContext.mainWindow else {
+                return
+            }
+            guard let path = path else {
+                alert(ru ? "Не удалось собрать логи." : "Couldn't collect the logs.")
+                return
+            }
+            // After the progress has gone, a native sheet doesn't show over it.
+            Queue.mainQueue().after(0.3, {
+                let activityController = UIActivityViewController(activityItems: [URL(fileURLWithPath: path)], applicationActivities: nil)
+                if let popover = activityController.popoverPresentationController {
+                    let view = window.hostView.containerView
+                    popover.sourceView = view
+                    popover.sourceRect = CGRect(x: view.bounds.midX, y: view.bounds.midY, width: 1.0, height: 1.0)
+                    popover.permittedArrowDirections = []
+                }
+                window.presentNative(activityController)
+            })
+        }
+    }
 }

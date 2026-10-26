@@ -9,6 +9,7 @@ public enum ZalupaGramCore {
         case ghostOnline = "zg_ghost_online" // Always appear offline.
         case ghostTyping = "zg_ghost_typing" // Don't send "typing...".
         case timeWithSeconds = "zg_time_with_seconds" // 14:05:37 in messages.
+        case hideSponsored = "zg_hide_sponsored" // No ads in channels.
 
         var defaultValue: Bool {
             switch self {

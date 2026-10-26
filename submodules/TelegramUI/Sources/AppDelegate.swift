@@ -1278,7 +1278,8 @@ private func extractAccountManagerState(records: AccountRecordsView<TelegramAcco
         }
         self.sharedContextPromise.set(sharedContextSignal
         |> mapToSignal { sharedApplicationContext, loggingSettings -> Signal<SharedApplicationContext, NoError> in
-            Logger.shared.logToFile = loggingSettings.logToFile
+            // ZalupaGram: always keep file logs for the logs button in Settings.
+            Logger.shared.logToFile = true
             Logger.shared.logToConsole = loggingSettings.logToConsole
             Logger.shared.redactSensitiveData = loggingSettings.redactSensitiveData
             

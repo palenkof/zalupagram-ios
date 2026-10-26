@@ -13,8 +13,10 @@ import DeviceAccess
 import TelegramStringFormatting
 import PeerNameColorItem
 import WalletContext
+import ZalupaGram
 
 enum SettingsSection: Int, CaseIterable {
+    case zalupaGram // ZalupaGram
     case edit
     case phone
     case accounts
@@ -27,6 +29,7 @@ enum SettingsSection: Int, CaseIterable {
     case payment
     case extra
     case support
+    case zalupaGramLogs // ZalupaGram
 }
 
 func settingsItems(data: PeerInfoScreenData?, context: AccountContext, presentationData: PresentationData, interaction: PeerInfoInteraction, isExpanded: Bool) -> [(AnyHashable, [PeerInfoScreenItem])] {
@@ -38,6 +41,9 @@ func settingsItems(data: PeerInfoScreenData?, context: AccountContext, presentat
     for section in SettingsSection.allCases {
         items[section] = []
     }
+    
+    // ZalupaGram: the fork name on top of Settings.
+    items[.zalupaGram]!.append(PeerInfoScreenDisclosureItem(id: 0, label: .text(ZalupaGram.version), text: ZalupaGram.title, icon: ZalupaGram.settingsIcon, hasArrow: false, action: nil))
     
     let setPhotoTitle: String
     if let peer = data.peer, !peer.profileImageRepresentations.isEmpty {
@@ -350,6 +356,11 @@ func settingsItems(data: PeerInfoScreenData?, context: AccountContext, presentat
     }))
     items[.support]!.append(PeerInfoScreenDisclosureItem(id: 2, text: presentationData.strings.Settings_Tips, icon: PresentationResourcesSettings.tips, action: {
         interaction.openSettings(.tips)
+    }))
+    
+    // ZalupaGram: logs to send for a fix.
+    items[.zalupaGramLogs]!.append(PeerInfoScreenDisclosureItem(id: 0, text: ZalupaGram.tr(presentationData.strings, "Send Logs", "Отправить логи"), icon: ZalupaGram.logsIcon, action: {
+        zalupaGramShareLogs(context: context)
     }))
     
     var result: [(AnyHashable, [PeerInfoScreenItem])] = []

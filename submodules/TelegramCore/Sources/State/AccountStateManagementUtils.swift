@@ -1,6 +1,7 @@
 import Foundation
 import Postbox
 import SwiftSignalKit
+import ZalupaGramCore
 internal import TelegramApi
 import MtProtoKit
 import EncryptionProvider
@@ -4621,7 +4622,17 @@ func replayFinalState(
                 upsertEphemeralReplacement(transaction: transaction, anchorMessageId: anchorMessageId, message: message)
             case let .DeleteEphemeralMessages(peerId, ids):
                 deleteEphemeralMessages(transaction: transaction, peerId: peerId, ids: ids)
-            case let .DeleteMessagesWithGlobalIds(ids):
+            case var .DeleteMessagesWithGlobalIds(ids):
+                // ZalupaGram: anti-delete, kept messages stay in the chat.
+                if ZalupaGramCore.option(.keepDeleted) {
+                    ids = ids.filter { globalId in
+                        let messageIds = transaction.messageIdsForGlobalIds([globalId])
+                        if messageIds.isEmpty {
+                            return true
+                        }
+                        return !zalupaGramKeepDeletedMessages(transaction: transaction, accountPeerId: accountPeerId, ids: messageIds).isEmpty
+                    }
+                }
                 var resourceIds: [MediaResourceId] = []
                 transaction.deleteMessagesWithGlobalIds(ids, forEachMedia: { media in
                     addMessageMediaResourceIdsToRemove(media: media, resourceIds: &resourceIds)
@@ -4630,7 +4641,9 @@ func replayFinalState(
                     let _ = mediaBox.removeCachedResources(Array(Set(resourceIds)), force: true).start()
                 }
                 deletedMessageIds.append(contentsOf: ids.map { .global($0) })
-            case let .DeleteMessages(ids):
+            case var .DeleteMessages(ids):
+                // ZalupaGram: anti-delete, kept messages stay in the chat.
+                ids = zalupaGramKeepDeletedMessages(transaction: transaction, accountPeerId: accountPeerId, ids: ids)
                 _internal_deleteMessages(transaction: transaction, mediaBox: mediaBox, ids: ids, manualAddMessageThreadStatsDifference: { id, add, remove in
                     addMessageThreadStatsDifference(threadKey: id, remove: remove, addedMessagePeer: nil, addedMessageId: nil, isOutgoing: false)
                 })
@@ -4679,6 +4692,9 @@ func replayFinalState(
                     if let message = locallyRenderedMessage(message: message, peers: peers) {
                         generatedEvent = reactionGeneratedEvent(previousMessage.reactionsAttribute, message.reactionsAttribute, message: message, transaction: transaction)
                     }
+                    
+                    // ZalupaGram: edit history.
+                    zalupaGramRememberEdit(accountPeerId: accountPeerId, previous: previousMessage, updatedText: message.text)
                     
                     return .update(mergedServerMessageUpdate(previous: previousMessage, updated: message))
                 })

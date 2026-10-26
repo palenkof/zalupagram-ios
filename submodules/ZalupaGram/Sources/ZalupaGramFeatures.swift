@@ -19,6 +19,9 @@ private struct Feature {
 }
 
 private let features: [Feature] = [
+    Feature(version: "0.3.0", icon: "🗑", title: ("Anti-delete", "Антиудаление"), text: ("Messages deleted by others stay in the chat with the «deleted» mark.", "Сообщения, удалённые собеседниками, остаются в чате с пометкой «удалено».")),
+    Feature(version: "0.3.0", icon: "📜", title: ("Edit history", "История правок"), text: ("Previous versions of edited messages: message menu.", "Старые версии изменённых сообщений: меню сообщения.")),
+    Feature(version: "0.3.0", icon: "🗂", title: ("Deleted messages", "Удалённые сообщения"), text: ("All of them in one list: ZalupaGram settings → Anti-delete.", "Все в одном списке: настройки ZalupaGram → Антиудаление.")),
     Feature(version: "0.2.0", icon: "🔎", title: ("Message details", "Подробности сообщения"), text: ("Exact send and edit time, IDs, where it was forwarded from: message menu.", "Точное время отправки и правки, ID, откуда переслано: меню сообщения.")),
     Feature(version: "0.2.0", icon: "🎙", title: ("Voice to text on the phone", "Расшифровка на телефоне"), text: ("Voice and round video messages, without Premium.", "Голосовые и кружки, без Premium.")),
     Feature(version: "0.2.0", icon: "🌐", title: ("Free translation", "Бесплатный перевод"), text: ("Messages and whole chats through Google, without Premium.", "Сообщения и целые чаты через Google, без Premium.")),

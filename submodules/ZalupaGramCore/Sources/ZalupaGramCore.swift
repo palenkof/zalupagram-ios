@@ -14,10 +14,12 @@ public enum ZalupaGramCore {
         case localTranscribe = "zg_local_transcribe" // Voice to text on the phone instead of Premium.
         case freeTranslation = "zg_free_translation" // Google instead of the Telegram server, chats without Premium.
         case noLinkPreviews = "zg_no_link_previews" // Links are sent without a preview.
+        case keepDeleted = "zg_keep_deleted" // Messages deleted by others stay in the chat.
+        case keepEdits = "zg_keep_edits" // Previous versions of edited messages.
 
         var defaultValue: Bool {
             switch self {
-            case .timeWithSeconds, .stripTracking, .localTranscribe, .freeTranslation, .noLinkPreviews:
+            case .timeWithSeconds, .stripTracking, .localTranscribe, .freeTranslation, .noLinkPreviews, .keepDeleted, .keepEdits:
                 return true
             default:
                 return false

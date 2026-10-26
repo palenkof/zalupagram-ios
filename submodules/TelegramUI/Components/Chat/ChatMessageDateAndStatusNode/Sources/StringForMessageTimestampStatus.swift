@@ -245,6 +245,12 @@ public func stringForMessageTimestampStatus(
         authorTitle = nil
     }
     
+    // ZalupaGram: anti-delete, the same mark as in ZalupaGram Desktop.
+    if message.zalupaGramDeletedDate != nil {
+        let isRussian = strings.baseLanguageCode == "ru" || strings.primaryComponent.languageCode == "ru"
+        dateText = (isRussian ? "удалено " : "deleted ") + dateText
+    }
+    
     if case .minimal = format {
         
     } else {

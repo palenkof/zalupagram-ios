@@ -43,6 +43,10 @@ private enum HistoryState {
     }
     
     func isMessageValid(_ message: Message) -> Bool {
+        // ZalupaGram: kept deleted messages are not on the server anymore.
+        if message.zalupaGramIsKeptDeleted {
+            return true
+        }
         switch self {
         case let .channel(_, state):
             if let invalidatedPts = state.invalidatedPts {
@@ -964,6 +968,10 @@ private func validateBatch(postbox: Postbox, network: Network, transaction: Tran
                     
                         for id in removedMessageIds {
                             if !validMessageIds.contains(id) {
+                                // ZalupaGram: kept deleted messages stay.
+                                if let current = transaction.getMessage(id), current.zalupaGramIsKeptDeleted {
+                                    continue
+                                }
                                 if let tag = tag {
                                     transaction.updateMessage(id, update: { currentMessage in
                                         var updatedTags = currentMessage.tags
@@ -1175,6 +1183,10 @@ private func validateReplyThreadBatch(postbox: Postbox, network: Network, transa
                 
                     for id in removedMessageIds {
                         if !validMessageIds.contains(id) {
+                            // ZalupaGram: kept deleted messages stay.
+                            if let current = transaction.getMessage(id), current.zalupaGramIsKeptDeleted {
+                                continue
+                            }
                             _internal_deleteMessages(transaction: transaction, mediaBox: postbox.mediaBox, ids: [id])
                             Logger.shared.log("HistoryValidation", "deleting thread message \(id) in \(id.peerId)")
                         }

@@ -19,8 +19,9 @@ private final class ZalupaGramSettingsArguments {
     let openFeatures: () -> Void
     let exportSettings: () -> Void
     let importSettings: () -> Void
+    let openDeleted: () -> Void
 
-    init(setOption: @escaping (ZalupaGramCore.Option, Bool) -> Void, clearExceptions: @escaping () -> Void, openFrameDelay: @escaping () -> Void, checkForUpdates: @escaping () -> Void, openFeatures: @escaping () -> Void, exportSettings: @escaping () -> Void, importSettings: @escaping () -> Void) {
+    init(setOption: @escaping (ZalupaGramCore.Option, Bool) -> Void, clearExceptions: @escaping () -> Void, openFrameDelay: @escaping () -> Void, checkForUpdates: @escaping () -> Void, openFeatures: @escaping () -> Void, exportSettings: @escaping () -> Void, importSettings: @escaping () -> Void, openDeleted: @escaping () -> Void) {
         self.setOption = setOption
         self.clearExceptions = clearExceptions
         self.openFrameDelay = openFrameDelay
@@ -28,12 +29,14 @@ private final class ZalupaGramSettingsArguments {
         self.openFeatures = openFeatures
         self.exportSettings = exportSettings
         self.importSettings = importSettings
+        self.openDeleted = openDeleted
     }
 }
 
 private enum ZalupaGramSettingsSection: Int32 {
     case ghost
     case chats
+    case keep
     case animations
     case more
     case about
@@ -46,6 +49,10 @@ private enum ZalupaGramSettingsEntry: ItemListNodeEntry {
     case ghostClearExceptions(String)
     case chatsHeader(String)
     case chatsOption(Int32, ZalupaGramCore.Option, String, Bool)
+    case keepHeader(String)
+    case keepOption(Int32, ZalupaGramCore.Option, String, Bool)
+    case keepList(String, String)
+    case keepInfo(String)
     case animationsHeader(String)
     case animationsDelay(String, String)
     case animationsInfo(String)
@@ -62,6 +69,8 @@ private enum ZalupaGramSettingsEntry: ItemListNodeEntry {
             return ZalupaGramSettingsSection.ghost.rawValue
         case .chatsHeader, .chatsOption:
             return ZalupaGramSettingsSection.chats.rawValue
+        case .keepHeader, .keepOption, .keepList, .keepInfo:
+            return ZalupaGramSettingsSection.keep.rawValue
         case .animationsHeader, .animationsDelay, .animationsInfo:
             return ZalupaGramSettingsSection.animations.rawValue
         case .moreHeader, .features, .exportSettings, .importSettings:
@@ -82,27 +91,35 @@ private enum ZalupaGramSettingsEntry: ItemListNodeEntry {
         case .ghostInfo:
             return 11
         case .chatsHeader:
-            return 15
-        case let .chatsOption(index, _, _, _):
-            return 16 + index
-        case .animationsHeader:
             return 20
+        case let .chatsOption(index, _, _, _):
+            return 21 + index
+        case .keepHeader:
+            return 40
+        case let .keepOption(index, _, _, _):
+            return 41 + index
+        case .keepList:
+            return 45
+        case .keepInfo:
+            return 46
+        case .animationsHeader:
+            return 50
         case .animationsDelay:
-            return 21
+            return 51
         case .animationsInfo:
-            return 22
+            return 52
         case .moreHeader:
-            return 25
+            return 60
         case .features:
-            return 26
+            return 61
         case .exportSettings:
-            return 27
+            return 62
         case .importSettings:
-            return 28
+            return 63
         case .checkForUpdates:
-            return 30
+            return 70
         case .about:
-            return 31
+            return 71
         }
     }
 
@@ -135,6 +152,26 @@ private enum ZalupaGramSettingsEntry: ItemListNodeEntry {
             return false
         case let .chatsOption(index, option, text, value):
             if case .chatsOption(index, option, text, value) = rhs {
+                return true
+            }
+            return false
+        case let .keepHeader(text):
+            if case .keepHeader(text) = rhs {
+                return true
+            }
+            return false
+        case let .keepOption(index, option, text, value):
+            if case .keepOption(index, option, text, value) = rhs {
+                return true
+            }
+            return false
+        case let .keepList(text, value):
+            if case .keepList(text, value) = rhs {
+                return true
+            }
+            return false
+        case let .keepInfo(text):
+            if case .keepInfo(text) = rhs {
                 return true
             }
             return false
@@ -193,13 +230,13 @@ private enum ZalupaGramSettingsEntry: ItemListNodeEntry {
     func item(presentationData: ItemListPresentationData, arguments: Any) -> ListViewItem {
         let arguments = arguments as! ZalupaGramSettingsArguments
         switch self {
-        case let .ghostHeader(text), let .chatsHeader(text), let .animationsHeader(text), let .moreHeader(text):
+        case let .ghostHeader(text), let .chatsHeader(text), let .animationsHeader(text), let .moreHeader(text), let .keepHeader(text):
             return ItemListSectionHeaderItem(presentationData: presentationData, text: text, sectionId: self.section)
-        case let .ghostOption(_, option, text, value), let .chatsOption(_, option, text, value):
+        case let .ghostOption(_, option, text, value), let .chatsOption(_, option, text, value), let .keepOption(_, option, text, value):
             return ItemListSwitchItem(presentationData: presentationData, systemStyle: .glass, title: text, value: value, sectionId: self.section, style: .blocks, updated: { value in
                 arguments.setOption(option, value)
             })
-        case let .ghostInfo(text), let .animationsInfo(text), let .about(text):
+        case let .ghostInfo(text), let .animationsInfo(text), let .keepInfo(text), let .about(text):
             return ItemListTextItem(presentationData: presentationData, text: .plain(text), sectionId: self.section)
         case let .ghostClearExceptions(text):
             return ItemListActionItem(presentationData: presentationData, systemStyle: .glass, title: text, kind: .destructive, alignment: .natural, sectionId: self.section, style: .blocks, action: {
@@ -221,6 +258,10 @@ private enum ZalupaGramSettingsEntry: ItemListNodeEntry {
             return ItemListActionItem(presentationData: presentationData, systemStyle: .glass, title: text, kind: .generic, alignment: .natural, sectionId: self.section, style: .blocks, action: {
                 arguments.checkForUpdates()
             })
+        case let .keepList(text, value):
+            return ItemListDisclosureItem(presentationData: presentationData, systemStyle: .glass, title: text, label: value, sectionId: self.section, style: .blocks, action: {
+                arguments.openDeleted()
+            })
         case let .animationsDelay(text, value):
             return ItemListDisclosureItem(presentationData: presentationData, systemStyle: .glass, title: text, label: value, sectionId: self.section, style: .blocks, action: {
                 arguments.openFrameDelay()
@@ -229,7 +270,7 @@ private enum ZalupaGramSettingsEntry: ItemListNodeEntry {
     }
 }
 
-private func zalupaGramSettingsEntries(presentationData: PresentationData) -> [ZalupaGramSettingsEntry] {
+private func zalupaGramSettingsEntries(presentationData: PresentationData, deletedCount: Int) -> [ZalupaGramSettingsEntry] {
     let ru = zalupaGramIsRussian(presentationData.strings)
     let t: (String, String) -> String = { english, russian in
         return ru ? russian : english
@@ -256,6 +297,15 @@ private func zalupaGramSettingsEntries(presentationData: PresentationData) -> [Z
     entries.append(.chatsOption(3, .localTranscribe, t("Voice to text on the phone", "Расшифровка голосовых на телефоне"), ZalupaGramCore.option(.localTranscribe)))
     entries.append(.chatsOption(4, .freeTranslation, t("Free translation (Google)", "Бесплатный перевод (Google)"), ZalupaGramCore.option(.freeTranslation)))
     entries.append(.chatsOption(5, .noLinkPreviews, t("Links without a preview", "Ссылки без превью"), ZalupaGramCore.option(.noLinkPreviews)))
+
+    entries.append(.keepHeader(t("ANTI-DELETE", "АНТИУДАЛЕНИЕ")))
+    entries.append(.keepOption(0, .keepDeleted, t("Keep deleted messages", "Сохранять удалённые сообщения"), ZalupaGramCore.option(.keepDeleted)))
+    entries.append(.keepOption(1, .keepEdits, t("Edit history", "История правок"), ZalupaGramCore.option(.keepEdits)))
+    entries.append(.keepList(t("Deleted messages", "Удалённые сообщения"), deletedCount > 0 ? "\(deletedCount)" : ""))
+    entries.append(.keepInfo(t(
+        "Messages deleted by others stay in the chat with the «deleted» mark. Previous versions of edited messages: message menu → «Edit history». Only what the app has seen is kept: while it was open or on the next start.",
+        "Сообщения, удалённые собеседниками, остаются в чате с пометкой «удалено». Старые версии изменённых сообщений: меню сообщения → «История правок». Сохраняется только то, что приложение успело увидеть: пока было открыто или при следующем запуске."
+    )))
 
     entries.append(.animationsHeader(t("ANIMATED PHRASES", "АНИМИРОВАННЫЕ ФРАЗЫ")))
     entries.append(.animationsDelay(t("Time per frame", "Время на кадр"), formatSeconds(zalupaGramAnimationFrameDelay, ru: ru)))
@@ -317,13 +367,15 @@ public func zalupaGramSettingsController(context: AccountContext) -> ViewControl
             }
             presentControllerImpl?(textAlertController(context: context, title: nil, text: text, actions: [TextAlertAction(type: .defaultAction, title: presentationData.strings.Common_OK, action: {})]))
         })
+    }, openDeleted: {
+        pushControllerImpl?(zalupaGramDeletedMessagesController(context: context))
     })
 
     let signal = combineLatest(context.sharedContext.presentationData, updated.get())
     |> deliverOnMainQueue
     |> map { presentationData, _ -> (ItemListControllerState, (ItemListNodeState, Any)) in
         let controllerState = ItemListControllerState(presentationData: ItemListPresentationData(presentationData), title: .text("ZalupaGram"), leftNavigationButton: nil, rightNavigationButton: nil, backNavigationButton: ItemListBackButton(title: presentationData.strings.Common_Back), animateChanges: false)
-        let listState = ItemListNodeState(presentationData: ItemListPresentationData(presentationData), entries: zalupaGramSettingsEntries(presentationData: presentationData), style: .blocks, emptyStateItem: nil, animateChanges: true)
+        let listState = ItemListNodeState(presentationData: ItemListPresentationData(presentationData), entries: zalupaGramSettingsEntries(presentationData: presentationData, deletedCount: zalupaGramDeletedMessagesCount(context: context)), style: .blocks, emptyStateItem: nil, animateChanges: true)
         return (controllerState, (listState, arguments))
     }
 

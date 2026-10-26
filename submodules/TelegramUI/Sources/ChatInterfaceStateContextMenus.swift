@@ -1999,7 +1999,8 @@ func contextMenuForChatPresentationInterfaceState(chatPresentationInterfaceState
                     editDate: editDate,
                     forwardFrom: forwardFrom,
                     forwardDate: message.forwardInfo?.date,
-                    forwardMessageId: message.forwardInfo?.sourceMessageId?.id
+                    forwardMessageId: message.forwardInfo?.sourceMessageId?.id,
+                    deletedDate: EngineMessage(message).zalupaGramDeletedDate
                 )
                 c?.dismiss(completion: {
                     let presentationData = context.sharedContext.currentPresentationData.with { $0 }
@@ -2012,6 +2013,17 @@ func contextMenuForChatPresentationInterfaceState(chatPresentationInterfaceState
                     ]), nil)
                 })
             })))
+            
+            // ZalupaGram: previous versions of an edited message.
+            if zalupaGramHasEditHistory(context: context, messageId: message.id) {
+                actions.append(.action(ContextMenuActionItem(text: zalupaGramEditHistoryTitle(strings: chatPresentationInterfaceState.strings), icon: { theme in
+                    return generateTintedImage(image: UIImage(bundleImageName: "Chat/Context Menu/Edit"), color: theme.actionSheet.primaryTextColor)
+                }, action: { c, _ in
+                    c?.dismiss(completion: {
+                        controllerInteraction.navigationController()?.pushViewController(zalupaGramEditHistoryController(context: context, message: EngineMessage(message)))
+                    })
+                })))
+            }
         }
         
         var clearCacheAsDelete = false

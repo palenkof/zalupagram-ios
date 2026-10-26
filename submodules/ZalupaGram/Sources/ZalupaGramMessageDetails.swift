@@ -11,8 +11,9 @@ public struct ZalupaGramMessageDetails {
     public var forwardFrom: String?
     public var forwardDate: Int32?
     public var forwardMessageId: Int32?
+    public var deletedDate: Int32?
 
-    public init(messageId: Int32, chatId: String, date: Int32, editDate: Int32?, forwardFrom: String?, forwardDate: Int32?, forwardMessageId: Int32?) {
+    public init(messageId: Int32, chatId: String, date: Int32, editDate: Int32?, forwardFrom: String?, forwardDate: Int32?, forwardMessageId: Int32?, deletedDate: Int32? = nil) {
         self.messageId = messageId
         self.chatId = chatId
         self.date = date
@@ -20,6 +21,7 @@ public struct ZalupaGramMessageDetails {
         self.forwardFrom = forwardFrom
         self.forwardDate = forwardDate
         self.forwardMessageId = forwardMessageId
+        self.deletedDate = deletedDate
     }
 }
 
@@ -39,6 +41,9 @@ public func zalupaGramMessageDetailsText(_ details: ZalupaGramMessageDetails, st
     lines.append((ru ? "Отправлено: " : "Sent: ") + format(details.date))
     if let editDate = details.editDate {
         lines.append((ru ? "Изменено: " : "Edited: ") + format(editDate))
+    }
+    if let deletedDate = details.deletedDate {
+        lines.append((ru ? "Удалено: " : "Deleted: ") + format(deletedDate))
     }
     lines.append((ru ? "ID сообщения: " : "Message ID: ") + "\(details.messageId)")
     lines.append((ru ? "ID чата: " : "Chat ID: ") + details.chatId)

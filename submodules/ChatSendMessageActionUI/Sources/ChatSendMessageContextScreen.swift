@@ -554,8 +554,9 @@ final class ChatSendMessageContextScreenComponent: Component {
             }
             switch component.params {
             case let.sendMessage(sendMessage):
-                // ZalupaGram: animate the phrase from the input field.
-                if !reminders, let animate = ZalupaGramSendMenu.animate {
+                // ZalupaGram: animate the phrase from the input field,
+                // in Saved Messages (reminders) too.
+                if let animate = ZalupaGramSendMenu.animate {
                     items.append(.action(ContextMenuActionItem(
                         id: AnyHashable("zalupaGramAnimate"),
                         text: ZalupaGram.tr(environment.strings, "🎬 Animate the phrase", "🎬 Анимировать фразу"),

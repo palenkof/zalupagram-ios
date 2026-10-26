@@ -12,6 +12,9 @@ import TopMessageReactions
 import ReactionSelectionNode
 import ChatControllerInteraction
 import ChatSendAudioMessageContextPreview
+import TextFormat
+import UndoUI
+import ZalupaGram
 
 extension ChatSendMessageEffect {
     convenience init(_ effect: ChatSendMessageActionSheetController.SendParameters.Effect) {
@@ -225,6 +228,16 @@ func chatMessageDisplaySendMessageOptions(selfController: ChatControllerImpl, no
                 }
             }
 
+            // ZalupaGram: "Animate the phrase" in this menu, for text messages only.
+            let zalupaGramInput = selfController.presentationInterfaceState.interfaceState.effectiveInputState.inputText
+            if mediaPreview == nil, selfController.presentationInterfaceState.subject == nil, (selfController.presentationInterfaceState.interfaceState.forwardMessageIds ?? []).isEmpty, !zalupaGramInput.string.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                ZalupaGramSendMenu.animate = { [weak selfController] in
+                    zalupaGramAnimateInput(selfController: selfController)
+                }
+            } else {
+                ZalupaGramSendMenu.animate = nil
+            }
+
             let controller = makeChatSendMessageActionSheetController(
                 initialData: initialData,
                 context: selfController.context,
@@ -260,6 +273,7 @@ func chatMessageDisplaySendMessageOptions(selfController: ChatControllerImpl, no
                 emojiViewProvider: selfController.chatDisplayNode.textInputPanelNode?.emojiViewProvider,
                 wallpaperBackgroundNode: selfController.chatDisplayNode.backgroundNode,
                 completion: { [weak selfController] in
+                    ZalupaGramSendMenu.animate = nil
                     guard let selfController else {
                         return
                     }
@@ -315,5 +329,46 @@ func chatMessageDisplaySendMessageOptions(selfController: ChatControllerImpl, no
                 selfController.presentInGlobalOverlay(controller, with: nil)
             }
         }
+    })
+}
+
+// ZalupaGram: picks a template and starts the animation of the input text.
+private func zalupaGramAnimateInput(selfController: ChatControllerImpl?) {
+    guard let selfController, let peerId = selfController.presentationInterfaceState.chatLocation.peerId else {
+        return
+    }
+    let inputText = selfController.presentationInterfaceState.interfaceState.effectiveInputState.inputText
+    let phrase = inputText.string
+    let entities = generateChatInputTextEntities(inputText)
+    let presentationData = selfController.presentationData
+    zalupaGramPresentAnimationPicker(presentationData: presentationData, phrase: phrase, present: { [weak selfController] controller in
+        selfController?.present(controller, in: .window(.root))
+    }, chosen: { [weak selfController] index in
+        guard let selfController else {
+            return
+        }
+        let result = zalupaGramStartAnimation(
+            context: selfController.context,
+            peerId: peerId,
+            threadId: selfController.chatLocation.threadId,
+            replyTo: selfController.presentationInterfaceState.interfaceState.replyMessageSubject?.subjectModel,
+            phrase: phrase,
+            entities: entities,
+            templateIndex: index,
+            strings: presentationData.strings
+        )
+        let text: String
+        switch result {
+        case let .started(duration):
+            text = zalupaGramAnimationStartedText(duration: duration, strings: presentationData.strings)
+            selfController.updateChatPresentationInterfaceState(animated: true, interactive: false, saveInterfaceState: true, {
+                $0.updatedInterfaceState { $0.withUpdatedReplyMessageSubject(nil).withUpdatedComposeInputState(ChatTextInputState(inputText: NSAttributedString(string: ""))) }
+            })
+        case .tooManyRunning:
+            text = zalupaGramAnimationTooManyText(strings: presentationData.strings)
+        case .emptyPhrase:
+            return
+        }
+        selfController.present(UndoOverlayController(presentationData: presentationData, content: .info(title: nil, text: text, timeout: nil, customUndoText: nil), elevatedLayout: false, action: { _ in return false }), in: .current)
     })
 }

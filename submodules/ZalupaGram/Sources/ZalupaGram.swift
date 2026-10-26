@@ -14,9 +14,6 @@ public enum ZalupaGram {
     // Fork strings are not in the cloud language packs,
     // so pick between English and Russian by the current language.
     public static func tr(_ strings: PresentationStrings, _ english: String, _ russian: String) -> String {
-        if strings.baseLanguageCode == "ru" || strings.primaryComponent.languageCode == "ru" {
-            return russian
-        }
-        return english
+        return zalupaGramIsRussian(strings) ? russian : english
     }
 }

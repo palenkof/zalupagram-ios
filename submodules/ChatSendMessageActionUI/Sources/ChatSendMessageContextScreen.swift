@@ -20,6 +20,7 @@ import TelegramAnimatedStickerNode
 import AnimatedStickerNode
 import ChatInputTextNode
 import UndoUI
+import ZalupaGram
 
 func convertFrame(_ frame: CGRect, from fromView: UIView, to toView: UIView) -> CGRect {
     let sourceWindowFrame = fromView.convert(frame, to: nil)
@@ -553,6 +554,22 @@ final class ChatSendMessageContextScreenComponent: Component {
             }
             switch component.params {
             case let.sendMessage(sendMessage):
+                // ZalupaGram: animate the phrase from the input field.
+                if !reminders, let animate = ZalupaGramSendMenu.animate {
+                    items.append(.action(ContextMenuActionItem(
+                        id: AnyHashable("zalupaGramAnimate"),
+                        text: ZalupaGram.tr(environment.strings, "🎬 Animate the phrase", "🎬 Анимировать фразу"),
+                        icon: { _ in
+                            return nil
+                        }, action: { [weak self] _, _ in
+                            guard let self else {
+                                return
+                            }
+                            self.environment?.controller()?.dismiss()
+                            animate()
+                        }
+                    )))
+                }
                 if !reminders {
                     items.append(.action(ContextMenuActionItem(
                         id: AnyHashable("silent"),

@@ -5044,6 +5044,8 @@ func replayFinalState(
                 updateContacts(transaction: transaction, apiUsers: users)
             case let .UpdatePeer(id, f):
                 if let peer = f(transaction.getPeer(id)) {
+                    // ZalupaGram: profile history.
+                    zalupaGramRecordProfileChange(transaction: transaction, accountPeerId: accountPeerId, previous: transaction.getPeer(id), updated: peer)
                     if id == accountPeerId, let updatedAccountPeer = peer as? TelegramUser, let previousAccountPeer = transaction.getPeer(accountPeerId) as? TelegramUser {
                         if updatedAccountPeer.isPremium != previousAccountPeer.isPremium {
                             isPremiumUpdated = true

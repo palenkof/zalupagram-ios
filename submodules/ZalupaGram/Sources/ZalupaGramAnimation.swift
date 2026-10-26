@@ -266,7 +266,7 @@ public func zalupaGramAnimationTooManyText(strings: PresentationStrings) -> Stri
     return zalupaGramIsRussian(strings) ? "Подождите, пока закончатся предыдущие анимации." : "Wait for the previous animations to finish."
 }
 
-private func emojiIcon(_ emoji: String) -> UIImage? {
+func emojiIcon(_ emoji: String) -> UIImage? {
     return generateImage(CGSize(width: 24.0, height: 24.0), rotatedContext: { size, context in
         context.clear(CGRect(origin: CGPoint(), size: size))
         UIGraphicsPushContext(context)

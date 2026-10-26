@@ -145,3 +145,46 @@ func zalupaGramRememberEdit(accountPeerId: PeerId, previous: Message, updatedTex
     }
     ZalupaGramKeeper.forAccount(accountPeerId.toInt64()).addEditVersion(zalupaGramKeeperKey(previous.id), text: previous.text, date: date)
 }
+
+// ZalupaGram fork: name, username and photo changes of contacts and users
+// with a private chat, as the client sees them.
+func zalupaGramRecordProfileChange(transaction: Transaction, accountPeerId: PeerId, previous: Peer?, updated: Peer) {
+    guard ZalupaGramCore.option(.profileHistory), let previous = previous as? TelegramUser, let updatedUser = updated as? TelegramUser, previous.id != accountPeerId else {
+        return
+    }
+    let merged = TelegramUser.merge(lhs: previous, rhs: updatedUser)
+    var changes: [ZalupaGramKeeper.ProfileChange] = []
+    let now = Int32(Date().timeIntervalSince1970)
+
+    let fullName: (TelegramUser) -> String = { user in
+        return [user.firstName, user.lastName].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " ")
+    }
+    let oldName = fullName(previous)
+    let newName = fullName(merged)
+    if !oldName.isEmpty && !newName.isEmpty && oldName != newName {
+        changes.append(ZalupaGramKeeper.ProfileChange(kind: .name, old: oldName, new: newName, date: now))
+    }
+
+    let oldUsername = previous.username ?? ""
+    let newUsername = merged.username ?? ""
+    if oldUsername != newUsername {
+        changes.append(ZalupaGramKeeper.ProfileChange(kind: .username, old: oldUsername, new: newUsername, date: now))
+    }
+
+    let oldPhoto = Set(previous.photo.map { $0.resource.id.stringRepresentation })
+    let newPhoto = Set(merged.photo.map { $0.resource.id.stringRepresentation })
+    if oldPhoto.isDisjoint(with: newPhoto) && !(oldPhoto.isEmpty && newPhoto.isEmpty) {
+        changes.append(ZalupaGramKeeper.ProfileChange(kind: .photo, old: oldPhoto.isEmpty ? "" : "photo", new: newPhoto.isEmpty ? "" : "photo", date: now))
+    }
+
+    if changes.isEmpty {
+        return
+    }
+    if !transaction.isPeerContact(peerId: previous.id) && transaction.getPeerChatListIndex(previous.id) == nil {
+        return
+    }
+    let keeper = ZalupaGramKeeper.forAccount(accountPeerId.toInt64())
+    for change in changes {
+        keeper.addProfileChange(peerId: previous.id.toInt64(), change)
+    }
+}

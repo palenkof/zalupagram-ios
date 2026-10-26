@@ -235,8 +235,29 @@ func chatMessageDisplaySendMessageOptions(selfController: ChatControllerImpl, no
                 ZalupaGramSendMenu.animate = { [weak selfController, weak sourceView] in
                     zalupaGramAnimateInput(selfController: selfController, sourceView: sourceView)
                 }
+                ZalupaGramSendMenuExtra.translate = { [weak selfController, weak sourceView] in
+                    zalupaGramTranslateInputMenu(selfController: selfController, sourceView: sourceView)
+                }
+                ZalupaGramSendMenuExtra.saveTemplate = { [weak selfController] in
+                    guard let selfController else {
+                        return
+                    }
+                    ZalupaGramTemplates.add(zalupaGramInputText(selfController: selfController).string)
+                    let presentationData = selfController.presentationData
+                    selfController.present(UndoOverlayController(presentationData: presentationData, content: .info(title: nil, text: zalupaGramTemplateSavedText(strings: presentationData.strings), timeout: nil, customUndoText: nil), elevatedLayout: false, action: { _ in return false }), in: .current)
+                }
             } else {
                 ZalupaGramSendMenu.animate = nil
+                ZalupaGramSendMenuExtra.translate = nil
+                ZalupaGramSendMenuExtra.saveTemplate = nil
+            }
+            if mediaPreview == nil, selfController.presentationInterfaceState.subject == nil, !ZalupaGramTemplates.all.isEmpty {
+                let sourceView = node.view
+                ZalupaGramSendMenuExtra.openTemplates = { [weak selfController, weak sourceView] in
+                    zalupaGramTemplatesMenu(selfController: selfController, sourceView: sourceView)
+                }
+            } else {
+                ZalupaGramSendMenuExtra.openTemplates = nil
             }
 
             let controller = makeChatSendMessageActionSheetController(
@@ -275,6 +296,9 @@ func chatMessageDisplaySendMessageOptions(selfController: ChatControllerImpl, no
                 wallpaperBackgroundNode: selfController.chatDisplayNode.backgroundNode,
                 completion: { [weak selfController] in
                     ZalupaGramSendMenu.animate = nil
+                    ZalupaGramSendMenuExtra.translate = nil
+                    ZalupaGramSendMenuExtra.saveTemplate = nil
+                    ZalupaGramSendMenuExtra.openTemplates = nil
                     guard let selfController else {
                         return
                     }
@@ -385,4 +409,59 @@ private func zalupaGramAnimateInput(selfController: ChatControllerImpl?, sourceV
         let contextController = makeContextController(presentationData: presentationData, source: .reference(ChatControllerContextReferenceContentSource(controller: selfController, sourceView: sourceView, insets: UIEdgeInsets(), actionsOnTop: true)), items: .single(ContextController.Items(content: .list(items))), gesture: nil)
         selfController.presentInGlobalOverlay(contextController)
     })
+}
+
+// ZalupaGram: puts a text into the input field instead of the current one.
+private func zalupaGramReplaceInput(selfController: ChatControllerImpl, text: String) {
+    selfController.updateChatPresentationInterfaceState(animated: true, interactive: true, {
+        $0.updatedInterfaceState { $0.withUpdatedComposeInputState(ChatTextInputState(inputText: NSAttributedString(string: text))) }
+    })
+}
+
+// ZalupaGram: a context menu at the send button, after the send menu has gone.
+private func zalupaGramPresentSendButtonMenu(selfController: ChatControllerImpl, sourceView: UIView, items: [ContextMenuItem]) {
+    let presentationData = selfController.presentationData
+    Queue.mainQueue().after(0.25, { [weak selfController, weak sourceView] in
+        guard let selfController, let sourceView else {
+            return
+        }
+        let contextController = makeContextController(presentationData: presentationData, source: .reference(ChatControllerContextReferenceContentSource(controller: selfController, sourceView: sourceView, insets: UIEdgeInsets(), actionsOnTop: true)), items: .single(ContextController.Items(content: .list(items))), gesture: nil)
+        selfController.presentInGlobalOverlay(contextController)
+    })
+}
+
+// ZalupaGram: translation of the input text before sending.
+private func zalupaGramTranslateInputMenu(selfController: ChatControllerImpl?, sourceView: UIView?) {
+    guard let selfController, let sourceView else {
+        return
+    }
+    let text = zalupaGramInputText(selfController: selfController).string
+    let presentationData = selfController.presentationData
+    let items = zalupaGramTranslateMenuItems(strings: presentationData.strings, chosen: { [weak selfController] language in
+        zalupaGramTranslateInput(text, to: language, completion: { result in
+            guard let selfController else {
+                return
+            }
+            if let result, !result.isEmpty {
+                zalupaGramReplaceInput(selfController: selfController, text: result)
+            } else {
+                selfController.present(UndoOverlayController(presentationData: presentationData, content: .info(title: nil, text: zalupaGramTranslateFailedText(strings: presentationData.strings), timeout: nil, customUndoText: nil), elevatedLayout: false, action: { _ in return false }), in: .current)
+            }
+        })
+    })
+    zalupaGramPresentSendButtonMenu(selfController: selfController, sourceView: sourceView, items: items)
+}
+
+// ZalupaGram: reply templates at the send button.
+private func zalupaGramTemplatesMenu(selfController: ChatControllerImpl?, sourceView: UIView?) {
+    guard let selfController, let sourceView else {
+        return
+    }
+    let items = zalupaGramTemplateMenuItems(strings: selfController.presentationData.strings, back: nil, chosen: { [weak selfController] text, c in
+        c?.dismiss(completion: nil)
+        if let selfController {
+            zalupaGramReplaceInput(selfController: selfController, text: text)
+        }
+    })
+    zalupaGramPresentSendButtonMenu(selfController: selfController, sourceView: sourceView, items: items)
 }

@@ -1199,6 +1199,28 @@ func contextMenuForChatPresentationInterfaceState(chatPresentationInterfaceState
                     })
                 })
             })))
+
+            // ZalupaGram: reply templates.
+            if !ZalupaGramTemplates.all.isEmpty {
+                let replyMessageId = messages[0].id
+                actions.append(.action(ContextMenuActionItem(text: zalupaGramReplyTemplateTitle(strings: chatPresentationInterfaceState.strings), icon: { theme in
+                    return generateTintedImage(image: UIImage(bundleImageName: "Chat/Context Menu/Reply"), color: theme.actionSheet.primaryTextColor)
+                }, action: { c, _ in
+                    let items = zalupaGramTemplateMenuItems(strings: chatPresentationInterfaceState.strings, back: { c in
+                        c?.popItems()
+                    }, chosen: { text, c in
+                        interfaceInteraction.updateTextInputStateAndMode { _, inputMode in
+                            return (ChatTextInputState(inputText: NSAttributedString(string: text)), inputMode)
+                        }
+                        interfaceInteraction.setupReplyMessage(replyMessageId, nil, { transition, completed in
+                            c?.dismiss(result: .custom(transition), completion: {
+                                completed()
+                            })
+                        })
+                    })
+                    c?.pushItems(items: .single(ContextController.Items(content: .list(items))))
+                })))
+            }
         }
         
         if data.messageActions.options.contains(.sendGift), !message.id.peerId.isTelegramNotifications {
@@ -2021,6 +2043,32 @@ func contextMenuForChatPresentationInterfaceState(chatPresentationInterfaceState
                 }, action: { c, _ in
                     c?.dismiss(completion: {
                         controllerInteraction.navigationController()?.pushViewController(zalupaGramEditHistoryController(context: context, message: EngineMessage(message)))
+                    })
+                })))
+            }
+
+            // ZalupaGram: a local note on the message.
+            let zalupaGramMessageNote = zalupaGramNote(context: context, messageId: message.id)
+            actions.append(.action(ContextMenuActionItem(text: zalupaGramNoteMenuTitle(strings: chatPresentationInterfaceState.strings, note: zalupaGramMessageNote), textLayout: zalupaGramMessageNote == nil ? .singleLine : .twoLinesMax, icon: { theme in
+                return generateTintedImage(image: UIImage(bundleImageName: "Chat/Context Menu/Edit"), color: theme.actionSheet.primaryTextColor)
+            }, action: { c, _ in
+                let messageId = message.id
+                c?.dismiss(completion: {
+                    zalupaGramEditNote(context: context, messageId: messageId, present: { controller in
+                        controllerInteraction.presentController(controller, nil)
+                    }, completion: {
+                        controllerInteraction.requestMessageUpdate(messageId, false, nil)
+                    })
+                })
+            })))
+
+            // ZalupaGram: stickers as PNG or GIF.
+            for zalupaGramFormat in zalupaGramStickerExportFormats(message: EngineMessage(message)) {
+                actions.append(.action(ContextMenuActionItem(text: zalupaGramStickerExportTitle(zalupaGramFormat, strings: chatPresentationInterfaceState.strings), icon: { theme in
+                    return generateTintedImage(image: UIImage(bundleImageName: "Chat/Context Menu/Download"), color: theme.actionSheet.primaryTextColor)
+                }, action: { c, _ in
+                    c?.dismiss(completion: {
+                        zalupaGramExportSticker(context: context, message: EngineMessage(message), format: zalupaGramFormat)
                     })
                 })))
             }

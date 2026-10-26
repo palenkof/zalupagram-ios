@@ -250,6 +250,10 @@ public func stringForMessageTimestampStatus(
         let isRussian = strings.baseLanguageCode == "ru" || strings.primaryComponent.languageCode == "ru"
         dateText = (isRussian ? "удалено " : "deleted ") + dateText
     }
+    // ZalupaGram: a local note on the message.
+    if message.id.namespace == Namespaces.Message.Cloud, ZalupaGramKeeper.forAccount(context.account.peerId.toInt64()).note(zalupaGramKeeperKey(message.id)) != nil {
+        dateText = "📝 " + dateText
+    }
     
     if case .minimal = format {
         

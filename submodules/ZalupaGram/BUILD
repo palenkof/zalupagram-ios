@@ -38,6 +38,9 @@ swift_library(
         "//submodules/Media/ConvertOpusToAAC",
         "//submodules/Media/LocalAudioTranscription",
         "//third-party/ZipArchive:ZipArchive",
+        "//submodules/PromptUI:PromptUI",
+        "//submodules/AnimatedStickerNode:AnimatedStickerNode",
+        "//submodules/WebPBinding:WebPBinding",
     ],
     visibility = [
         "//visibility:public",

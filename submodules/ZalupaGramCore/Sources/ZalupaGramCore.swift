@@ -16,10 +16,11 @@ public enum ZalupaGramCore {
         case noLinkPreviews = "zg_no_link_previews" // Links are sent without a preview.
         case keepDeleted = "zg_keep_deleted" // Messages deleted by others stay in the chat.
         case keepEdits = "zg_keep_edits" // Previous versions of edited messages.
+        case profileHistory = "zg_profile_history" // Name, username and photo changes of users.
 
         var defaultValue: Bool {
             switch self {
-            case .timeWithSeconds, .stripTracking, .localTranscribe, .freeTranslation, .noLinkPreviews, .keepDeleted, .keepEdits:
+            case .timeWithSeconds, .stripTracking, .localTranscribe, .freeTranslation, .noLinkPreviews, .keepDeleted, .keepEdits, .profileHistory:
                 return true
             default:
                 return false

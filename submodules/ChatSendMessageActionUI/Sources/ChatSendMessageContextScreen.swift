@@ -571,6 +571,51 @@ final class ChatSendMessageContextScreenComponent: Component {
                         }
                     )))
                 }
+                if let translate = ZalupaGramSendMenuExtra.translate {
+                    items.append(.action(ContextMenuActionItem(
+                        id: AnyHashable("zalupaGramTranslate"),
+                        text: ZalupaGram.tr(environment.strings, "🌐 Translate the text", "🌐 Перевести текст"),
+                        icon: { _ in
+                            return nil
+                        }, action: { [weak self] _, _ in
+                            guard let self else {
+                                return
+                            }
+                            self.environment?.controller()?.dismiss()
+                            translate()
+                        }
+                    )))
+                }
+                if let openTemplates = ZalupaGramSendMenuExtra.openTemplates {
+                    items.append(.action(ContextMenuActionItem(
+                        id: AnyHashable("zalupaGramTemplates"),
+                        text: ZalupaGram.tr(environment.strings, "📋 Templates", "📋 Шаблоны"),
+                        icon: { _ in
+                            return nil
+                        }, action: { [weak self] _, _ in
+                            guard let self else {
+                                return
+                            }
+                            self.environment?.controller()?.dismiss()
+                            openTemplates()
+                        }
+                    )))
+                }
+                if let saveTemplate = ZalupaGramSendMenuExtra.saveTemplate {
+                    items.append(.action(ContextMenuActionItem(
+                        id: AnyHashable("zalupaGramSaveTemplate"),
+                        text: ZalupaGram.tr(environment.strings, "💾 Save as a template", "💾 Сохранить как шаблон"),
+                        icon: { _ in
+                            return nil
+                        }, action: { [weak self] _, _ in
+                            guard let self else {
+                                return
+                            }
+                            self.environment?.controller()?.dismiss()
+                            saveTemplate()
+                        }
+                    )))
+                }
                 if !reminders {
                     items.append(.action(ContextMenuActionItem(
                         id: AnyHashable("silent"),

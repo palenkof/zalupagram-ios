@@ -481,6 +481,22 @@ func chatContextMenuItems(context: AccountContext, peerId: EnginePeer.Id, promoI
                                         f(.default)
                                     })))
                                 }
+
+                                // ZalupaGram: delete all your own messages in a group.
+                                var zalupaGramIsGroup = false
+                                if case .legacyGroup = peer {
+                                    zalupaGramIsGroup = true
+                                } else if case let .channel(channel) = peer, case .group = channel.info {
+                                    zalupaGramIsGroup = true
+                                }
+                                if zalupaGramIsGroup {
+                                    items.append(.action(ContextMenuActionItem(text: zalupaGramDeleteMyMessagesTitle(strings: strings), textColor: .destructive, icon: { theme in generateTintedImage(image: UIImage(bundleImageName: "Chat/Context Menu/Delete"), color: theme.contextMenu.destructiveColor) }, action: { _, f in
+                                        f(.default)
+                                        zalupaGramDeleteMyMessages(context: context, peerId: peerId, present: { controller in
+                                            chatListController?.present(controller, in: .window(.root))
+                                        })
+                                    })))
+                                }
                             }
                         } else {
                             if case .search = source {

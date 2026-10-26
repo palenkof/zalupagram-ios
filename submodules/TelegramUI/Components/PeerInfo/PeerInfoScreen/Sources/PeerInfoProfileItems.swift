@@ -930,6 +930,14 @@ func infoItems(
                 interaction.requestLayout(animated)
             }))
         }
+        if isUser, let history = zalupaGramProfileHistorySummary(context: context, peerId: peer.id, strings: presentationData.strings) {
+            let peerId = peer.id
+            items[.peerInfo]!.append(PeerInfoScreenLabeledValueItem(id: AnyHashable("zalupaGramProfileHistory"), label: zalupaGramProfileHistoryTitle(strings: presentationData.strings), text: history, action: { _, _ in
+                interaction.getController()?.push(zalupaGramProfileHistoryController(context: context, peerId: peerId))
+            }, requestLayout: { animated in
+                interaction.requestLayout(animated)
+            }))
+        }
     }
     
     var result: [(AnyHashable, [PeerInfoScreenItem])] = []

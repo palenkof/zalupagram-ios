@@ -20,8 +20,9 @@ private final class ZalupaGramSettingsArguments {
     let exportSettings: () -> Void
     let importSettings: () -> Void
     let openDeleted: () -> Void
+    let openTemplates: () -> Void
 
-    init(setOption: @escaping (ZalupaGramCore.Option, Bool) -> Void, clearExceptions: @escaping () -> Void, openFrameDelay: @escaping () -> Void, checkForUpdates: @escaping () -> Void, openFeatures: @escaping () -> Void, exportSettings: @escaping () -> Void, importSettings: @escaping () -> Void, openDeleted: @escaping () -> Void) {
+    init(setOption: @escaping (ZalupaGramCore.Option, Bool) -> Void, clearExceptions: @escaping () -> Void, openFrameDelay: @escaping () -> Void, checkForUpdates: @escaping () -> Void, openFeatures: @escaping () -> Void, exportSettings: @escaping () -> Void, importSettings: @escaping () -> Void, openDeleted: @escaping () -> Void, openTemplates: @escaping () -> Void) {
         self.setOption = setOption
         self.clearExceptions = clearExceptions
         self.openFrameDelay = openFrameDelay
@@ -30,6 +31,7 @@ private final class ZalupaGramSettingsArguments {
         self.exportSettings = exportSettings
         self.importSettings = importSettings
         self.openDeleted = openDeleted
+        self.openTemplates = openTemplates
     }
 }
 
@@ -49,6 +51,7 @@ private enum ZalupaGramSettingsEntry: ItemListNodeEntry {
     case ghostClearExceptions(String)
     case chatsHeader(String)
     case chatsOption(Int32, ZalupaGramCore.Option, String, Bool)
+    case chatsTemplates(String, String)
     case keepHeader(String)
     case keepOption(Int32, ZalupaGramCore.Option, String, Bool)
     case keepList(String, String)
@@ -67,7 +70,7 @@ private enum ZalupaGramSettingsEntry: ItemListNodeEntry {
         switch self {
         case .ghostHeader, .ghostOption, .ghostInfo, .ghostClearExceptions:
             return ZalupaGramSettingsSection.ghost.rawValue
-        case .chatsHeader, .chatsOption:
+        case .chatsHeader, .chatsOption, .chatsTemplates:
             return ZalupaGramSettingsSection.chats.rawValue
         case .keepHeader, .keepOption, .keepList, .keepInfo:
             return ZalupaGramSettingsSection.keep.rawValue
@@ -94,14 +97,16 @@ private enum ZalupaGramSettingsEntry: ItemListNodeEntry {
             return 20
         case let .chatsOption(index, _, _, _):
             return 21 + index
+        case .chatsTemplates:
+            return 39
         case .keepHeader:
             return 40
         case let .keepOption(index, _, _, _):
             return 41 + index
         case .keepList:
-            return 45
-        case .keepInfo:
             return 46
+        case .keepInfo:
+            return 47
         case .animationsHeader:
             return 50
         case .animationsDelay:
@@ -152,6 +157,11 @@ private enum ZalupaGramSettingsEntry: ItemListNodeEntry {
             return false
         case let .chatsOption(index, option, text, value):
             if case .chatsOption(index, option, text, value) = rhs {
+                return true
+            }
+            return false
+        case let .chatsTemplates(text, value):
+            if case .chatsTemplates(text, value) = rhs {
                 return true
             }
             return false
@@ -258,6 +268,10 @@ private enum ZalupaGramSettingsEntry: ItemListNodeEntry {
             return ItemListActionItem(presentationData: presentationData, systemStyle: .glass, title: text, kind: .generic, alignment: .natural, sectionId: self.section, style: .blocks, action: {
                 arguments.checkForUpdates()
             })
+        case let .chatsTemplates(text, value):
+            return ItemListDisclosureItem(presentationData: presentationData, systemStyle: .glass, title: text, label: value, sectionId: self.section, style: .blocks, action: {
+                arguments.openTemplates()
+            })
         case let .keepList(text, value):
             return ItemListDisclosureItem(presentationData: presentationData, systemStyle: .glass, title: text, label: value, sectionId: self.section, style: .blocks, action: {
                 arguments.openDeleted()
@@ -297,14 +311,17 @@ private func zalupaGramSettingsEntries(presentationData: PresentationData, delet
     entries.append(.chatsOption(3, .localTranscribe, t("Voice to text on the phone", "Расшифровка голосовых на телефоне"), ZalupaGramCore.option(.localTranscribe)))
     entries.append(.chatsOption(4, .freeTranslation, t("Free translation (Google)", "Бесплатный перевод (Google)"), ZalupaGramCore.option(.freeTranslation)))
     entries.append(.chatsOption(5, .noLinkPreviews, t("Links without a preview", "Ссылки без превью"), ZalupaGramCore.option(.noLinkPreviews)))
+    let templates = ZalupaGramTemplates.all.count
+    entries.append(.chatsTemplates(t("Reply templates", "Шаблоны ответов"), templates > 0 ? "\(templates)" : ""))
 
     entries.append(.keepHeader(t("ANTI-DELETE", "АНТИУДАЛЕНИЕ")))
     entries.append(.keepOption(0, .keepDeleted, t("Keep deleted messages", "Сохранять удалённые сообщения"), ZalupaGramCore.option(.keepDeleted)))
     entries.append(.keepOption(1, .keepEdits, t("Edit history", "История правок"), ZalupaGramCore.option(.keepEdits)))
+    entries.append(.keepOption(2, .profileHistory, t("Profile history", "История профилей"), ZalupaGramCore.option(.profileHistory)))
     entries.append(.keepList(t("Deleted messages", "Удалённые сообщения"), deletedCount > 0 ? "\(deletedCount)" : ""))
     entries.append(.keepInfo(t(
-        "Messages deleted by others stay in the chat with the «deleted» mark. Previous versions of edited messages: message menu → «Edit history». Only what the app has seen is kept: while it was open or on the next start.",
-        "Сообщения, удалённые собеседниками, остаются в чате с пометкой «удалено». Старые версии изменённых сообщений: меню сообщения → «История правок». Сохраняется только то, что приложение успело увидеть: пока было открыто или при следующем запуске."
+        "Messages deleted by others stay in the chat with the «deleted» mark. Previous versions of edited messages: message menu → «Edit history». Name, username and photo changes of contacts: in their profile. Only what the app has seen is kept.",
+        "Сообщения, удалённые собеседниками, остаются в чате с пометкой «удалено». Старые версии изменённых сообщений: меню сообщения → «История правок». Смены имени, юзернейма и аватарки контактов: в их профиле. Сохраняется только то, что приложение успело увидеть."
     )))
 
     entries.append(.animationsHeader(t("ANIMATED PHRASES", "АНИМИРОВАННЫЕ ФРАЗЫ")))
@@ -369,6 +386,8 @@ public func zalupaGramSettingsController(context: AccountContext) -> ViewControl
         })
     }, openDeleted: {
         pushControllerImpl?(zalupaGramDeletedMessagesController(context: context))
+    }, openTemplates: {
+        pushControllerImpl?(zalupaGramTemplatesController(context: context))
     })
 
     let signal = combineLatest(context.sharedContext.presentationData, updated.get())

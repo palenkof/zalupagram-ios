@@ -143,6 +143,8 @@ func updatePeers(transaction: Transaction, accountPeerId: PeerId, peers: Accumul
     var parsedPeers: [Peer] = []
     for (_, user) in peers.users {
         if let telegramUser = TelegramUser.merge(transaction.getPeer(user.peerId) as? TelegramUser, rhs: user) {
+            // ZalupaGram: profile history.
+            zalupaGramRecordProfileChange(transaction: transaction, accountPeerId: accountPeerId, previous: transaction.getPeer(user.peerId), updated: telegramUser)
             parsedPeers.append(telegramUser)
             switch user {
             case let .user(userData):

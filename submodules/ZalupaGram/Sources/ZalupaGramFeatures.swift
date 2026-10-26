@@ -19,6 +19,12 @@ private struct Feature {
 }
 
 private let features: [Feature] = [
+    Feature(version: "0.4.0", icon: "📝", title: ("Notes on messages", "Заметки к сообщениям"), text: ("Message menu → «Add a note», only you see it, marked with 📝.", "Меню сообщения → «Добавить заметку», видна только вам, отмечена 📝.")),
+    Feature(version: "0.4.0", icon: "📋", title: ("Reply templates", "Шаблоны ответов"), text: ("Message menu → «Reply with a template», saved from the send button menu.", "Меню сообщения → «Ответить шаблоном», сохраняются из меню кнопки отправки.")),
+    Feature(version: "0.4.0", icon: "🌐", title: ("Translate before sending", "Перевод перед отправкой"), text: ("Hold the send button → «Translate the text».", "Зажмите кнопку отправки → «Перевести текст».")),
+    Feature(version: "0.4.0", icon: "🪪", title: ("Profile history", "История профилей"), text: ("Name, username and photo changes of contacts, in their profile.", "Смены имени, юзернейма и аватарки контактов, в их профиле.")),
+    Feature(version: "0.4.0", icon: "🎭", title: ("Stickers as PNG and GIF", "Стикеры в PNG и GIF"), text: ("Sticker menu → «Save as PNG» or «Save as GIF».", "Меню стикера → «Сохранить как PNG» или «Сохранить как GIF».")),
+    Feature(version: "0.4.0", icon: "🧹", title: ("Delete my messages", "Удалить мои сообщения"), text: ("All of yours in a group at once: hold the group in the chat list.", "Все свои в группе разом: зажмите группу в списке чатов.")),
     Feature(version: "0.3.0", icon: "🗑", title: ("Anti-delete", "Антиудаление"), text: ("Messages deleted by others stay in the chat with the «deleted» mark.", "Сообщения, удалённые собеседниками, остаются в чате с пометкой «удалено».")),
     Feature(version: "0.3.0", icon: "📜", title: ("Edit history", "История правок"), text: ("Previous versions of edited messages: message menu.", "Старые версии изменённых сообщений: меню сообщения.")),
     Feature(version: "0.3.0", icon: "🗂", title: ("Deleted messages", "Удалённые сообщения"), text: ("All of them in one list: ZalupaGram settings → Anti-delete.", "Все в одном списке: настройки ZalupaGram → Антиудаление.")),

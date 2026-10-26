@@ -1,8 +1,8 @@
 import Foundation
 
-// ZalupaGram fork: the list of messages deleted by others and previous
-// versions of edited messages, kept per account in a JSON file in
-// Application Support. The deleted message itself stays in the chat
+// ZalupaGram fork: the list of messages deleted by others, previous
+// versions of edited messages, local notes on messages and the profile
+// changes of users, kept per account in a JSON file in Application Support. The deleted message itself stays in the chat
 // (TelegramCore marks it), this list feeds the «Deleted messages» screen
 // and the edit history. Nothing here is sent anywhere.
 public final class ZalupaGramKeeper {
@@ -46,20 +46,55 @@ public final class ZalupaGramKeeper {
         }
     }
 
+    public struct ProfileChange: Codable {
+        public enum Kind: String, Codable {
+            case name
+            case username
+            case photo
+        }
+
+        public var kind: Kind
+        public var old: String
+        public var new: String
+        public var date: Int32
+
+        public init(kind: Kind, old: String, new: String, date: Int32) {
+            self.kind = kind
+            self.old = old
+            self.new = new
+            self.date = date
+        }
+    }
+
     private struct EditEntry: Codable {
         var key: Key
         var versions: [EditVersion]
     }
 
+    private struct NoteEntry: Codable {
+        var key: Key
+        var text: String
+    }
+
+    private struct ProfileEntry: Codable {
+        var peerId: Int64
+        var changes: [ProfileChange]
+    }
+
+    // Fields added later are optional, so older files still load.
     private struct Storage: Codable {
         var deleted: [DeletedMessage] = []
         var edits: [EditEntry] = []
+        var notes: [NoteEntry]?
+        var profiles: [ProfileEntry]?
     }
 
     private static let maxDeleted = 3000
     private static let maxEditedMessages = 2000
     private static let maxVersions = 20
     private static let maxTextLength = 4000
+    private static let maxProfileChanges = 50
+    private static let maxProfiles = 1000
 
     private final class Registry {
         let lock = NSLock()
@@ -87,6 +122,8 @@ public final class ZalupaGramKeeper {
     private let saveQueue = DispatchQueue(label: "ZalupaGramKeeper")
     private var deleted: [Key: DeletedMessage] = [:]
     private var edits: [Key: [EditVersion]] = [:]
+    private var notes: [Key: String] = [:]
+    private var profiles: [Int64: [ProfileChange]] = [:]
     private var saveScheduled = false
 
     private init(accountPeerId: Int64) {
@@ -103,6 +140,12 @@ public final class ZalupaGramKeeper {
             }
             for entry in storage.edits {
                 self.edits[entry.key] = entry.versions
+            }
+            for entry in storage.notes ?? [] {
+                self.notes[entry.key] = entry.text
+            }
+            for entry in storage.profiles ?? [] {
+                self.profiles[entry.peerId] = entry.changes
             }
         }
     }
@@ -220,6 +263,73 @@ public final class ZalupaGramKeeper {
         self.scheduleSave()
     }
 
+    // MARK: Notes
+
+    // Local notes on messages, never sent anywhere.
+    public func note(_ key: Key) -> String? {
+        self.lock.lock()
+        defer {
+            self.lock.unlock()
+        }
+        return self.notes[key]
+    }
+
+    public func setNote(_ key: Key, _ text: String?) {
+        let text = text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        self.lock.lock()
+        if text.isEmpty {
+            self.notes.removeValue(forKey: key)
+        } else {
+            self.notes[key] = ZalupaGramKeeper.clipped(text)
+        }
+        self.lock.unlock()
+        self.scheduleSave()
+    }
+
+    public var notesCount: Int {
+        self.lock.lock()
+        defer {
+            self.lock.unlock()
+        }
+        return self.notes.count
+    }
+
+    // MARK: Profile changes
+
+    public func addProfileChange(peerId: Int64, _ change: ProfileChange) {
+        self.lock.lock()
+        var changes = self.profiles[peerId] ?? []
+        changes.append(change)
+        if changes.count > ZalupaGramKeeper.maxProfileChanges {
+            changes.removeFirst(changes.count - ZalupaGramKeeper.maxProfileChanges)
+        }
+        self.profiles[peerId] = changes
+        if self.profiles.count > ZalupaGramKeeper.maxProfiles {
+            let removed = self.profiles.sorted(by: { ($0.value.last?.date ?? 0) < ($1.value.last?.date ?? 0) }).prefix(self.profiles.count - ZalupaGramKeeper.maxProfiles)
+            for item in removed {
+                self.profiles.removeValue(forKey: item.key)
+            }
+        }
+        self.lock.unlock()
+        self.scheduleSave()
+    }
+
+    // Oldest first.
+    public func profileChanges(peerId: Int64) -> [ProfileChange] {
+        self.lock.lock()
+        defer {
+            self.lock.unlock()
+        }
+        return self.profiles[peerId] ?? []
+    }
+
+    public func clearProfileChanges(peerId: Int64) {
+        self.lock.lock()
+        self.profiles.removeValue(forKey: peerId)
+        self.lock.unlock()
+        self.scheduleSave()
+    }
+
     // MARK: Storage
 
     private func scheduleSave() {
@@ -244,6 +354,8 @@ public final class ZalupaGramKeeper {
         var storage = Storage()
         storage.deleted = Array(self.deleted.values)
         storage.edits = self.edits.map { EditEntry(key: $0.key, versions: $0.value) }
+        storage.notes = self.notes.map { NoteEntry(key: $0.key, text: $0.value) }
+        storage.profiles = self.profiles.map { ProfileEntry(peerId: $0.key, changes: $0.value) }
         self.lock.unlock()
         if let data = try? JSONEncoder().encode(storage) {
             try? data.write(to: url, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])

@@ -12,10 +12,11 @@ public enum ZalupaGramCore {
         case hideSponsored = "zg_hide_sponsored" // No ads in channels.
         case stripTracking = "zg_strip_tracking" // Remove utm_* and similar from sent links.
         case localTranscribe = "zg_local_transcribe" // Voice to text on the phone instead of Premium.
+        case freeTranslation = "zg_free_translation" // Google instead of the Telegram server, chats without Premium.
 
         var defaultValue: Bool {
             switch self {
-            case .timeWithSeconds, .stripTracking, .localTranscribe:
+            case .timeWithSeconds, .stripTracking, .localTranscribe, .freeTranslation:
                 return true
             default:
                 return false

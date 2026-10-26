@@ -201,6 +201,7 @@ private func zalupaGramSettingsEntries(presentationData: PresentationData) -> [Z
     entries.append(.chatsOption(1, .hideSponsored, t("No ads in channels", "Без рекламы в каналах"), ZalupaGramCore.option(.hideSponsored)))
     entries.append(.chatsOption(2, .stripTracking, t("Clean links (no utm_*, fbclid…)", "Чистые ссылки (без utm_*, fbclid…)"), ZalupaGramCore.option(.stripTracking)))
     entries.append(.chatsOption(3, .localTranscribe, t("Voice to text on the phone", "Расшифровка голосовых на телефоне"), ZalupaGramCore.option(.localTranscribe)))
+    entries.append(.chatsOption(4, .freeTranslation, t("Free translation (Google)", "Бесплатный перевод (Google)"), ZalupaGramCore.option(.freeTranslation)))
 
     entries.append(.animationsHeader(t("ANIMATED PHRASES", "АНИМИРОВАННЫЕ ФРАЗЫ")))
     entries.append(.animationsDelay(t("Time per frame", "Время на кадр"), formatSeconds(zalupaGramAnimationFrameDelay, ru: ru)))

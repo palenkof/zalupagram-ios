@@ -38,6 +38,7 @@ import TextFormat
 import ChatNewThreadInfoItem
 import PhoneNumberFormat
 import Postbox
+import ZalupaGramCore
 
 struct ChatTopVisibleMessageRange: Equatable {
     var lowerBound: MessageIndex
@@ -2316,7 +2317,8 @@ public final class ChatHistoryListNodeImpl: ASDisplayNode, ChatHistoryNode, Chat
                 )
                 
                 var translateToLanguage: (fromLang: String, toLang: String)?
-                if let translationState, (isPremium || autoTranslate)  && translationState.isEnabled {
+                // ZalupaGram: chat translation without Premium.
+                if let translationState, (isPremium || autoTranslate || ZalupaGramCore.option(.freeTranslation))  && translationState.isEnabled {
                     var languageCode = translationState.toLang ?? chatPresentationData.strings.baseLanguageCode
                     let rawSuffix = "-raw"
                     if languageCode.hasSuffix(rawSuffix) {

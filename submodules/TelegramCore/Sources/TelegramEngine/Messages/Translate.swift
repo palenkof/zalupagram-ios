@@ -3,6 +3,7 @@ import Postbox
 import SwiftSignalKit
 internal import TelegramApi
 import MtProtoKit
+import ZalupaGramCore
 
 public enum ComposedRichMessage: Equatable {
     /// Structured content → a rich message (`RichTextMessageAttribute(instantPage:)`, sent with `text: ""`).
@@ -30,6 +31,17 @@ public enum TranslationTone: String {
 }
 
 func _internal_translate(network: Network, text: String, toLang: String, entities: [MessageTextEntity] = [], tone: TranslationTone = .neutral, peer: Api.InputPeer? = nil, messageId: Int32? = nil) -> Signal<(String, [MessageTextEntity])?, TranslationError> {
+    // ZalupaGram: free translation through Google.
+    if ZalupaGramCore.option(.freeTranslation) && !text.isEmpty {
+        return zalupaGramGoogleTranslate([text], toLang: toLang)
+        |> castError(TranslationError.self)
+        |> mapToSignal { results -> Signal<(String, [MessageTextEntity])?, TranslationError> in
+            guard let first = results.first, let result = first else {
+                return .fail(.generic)
+            }
+            return .single((result, []))
+        }
+    }
     var flags: Int32 = 0
 
     if tone != .neutral {
@@ -172,6 +184,22 @@ func _internal_composeRichMessageWithAI(account: Account, instantPage: InstantPa
 }
 
 func _internal_translateTexts(network: Network, texts: [(String, [MessageTextEntity])], toLang: String, tone: TranslationTone = .neutral) -> Signal<[(String, [MessageTextEntity])], TranslationError> {
+    // ZalupaGram: free translation through Google.
+    if ZalupaGramCore.option(.freeTranslation) {
+        return zalupaGramGoogleTranslate(texts.map { $0.0 }, toLang: toLang)
+        |> castError(TranslationError.self)
+        |> map { results -> [(String, [MessageTextEntity])] in
+            var mapped: [(String, [MessageTextEntity])] = []
+            for (index, result) in results.enumerated() {
+                if let result {
+                    mapped.append((result, []))
+                } else {
+                    mapped.append(texts[index])
+                }
+            }
+            return mapped
+        }
+    }
     var flags: Int32 = 0
     flags |= (1 << 1)
     
@@ -345,7 +373,24 @@ private func _internal_translateMessagesByPeerId(account: Account, peerId: Engin
         if id.isEmpty {
             msgs = .single(nil)
         } else {
-            if enableLocalIfPossible, let engineExperimentalInternalTranslationService, let fromLang {
+            if ZalupaGramCore.option(.freeTranslation) {
+                // ZalupaGram: free translation of the chat through Google.
+                msgs = account.postbox.transaction { transaction -> [String] in
+                    return plainMessageIds.map { transaction.getMessage($0)?.text ?? "" }
+                }
+                |> castError(TranslationError.self)
+                |> mapToSignal { messageTexts -> Signal<Api.messages.TranslatedText?, TranslationError> in
+                    return zalupaGramGoogleTranslate(messageTexts, toLang: toLang)
+                    |> castError(TranslationError.self)
+                    |> map { results -> Api.messages.TranslatedText? in
+                        var result: [Api.TextWithEntities] = []
+                        for (index, text) in results.enumerated() {
+                            result.append(.textWithEntities(.init(text: text ?? messageTexts[index], entities: [])))
+                        }
+                        return .translateResult(.init(result: result))
+                    }
+                }
+            } else if enableLocalIfPossible, let engineExperimentalInternalTranslationService, let fromLang {
                 msgs = account.postbox.transaction { transaction -> [MessageId: String] in
                     var texts: [MessageId: String] = [:]
                     for messageId in plainMessageIds {

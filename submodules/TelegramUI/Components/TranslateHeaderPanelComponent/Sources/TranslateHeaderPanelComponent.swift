@@ -8,6 +8,7 @@ import AccountContext
 import TelegramCore
 import SwiftSignalKit
 import PresentationDataUtils
+import ZalupaGramCore
 
 public final class TranslateHeaderPanelComponent: Component {
     public struct Info: Equatable {
@@ -18,7 +19,8 @@ public final class TranslateHeaderPanelComponent: Component {
         public let peer: EnginePeer?
         
         public init(isPremium: Bool, isActive: Bool, fromLang: String, toLang: String?, peer: EnginePeer?) {
-            self.isPremium = isPremium
+            // ZalupaGram: chat translation without Premium.
+            self.isPremium = isPremium || ZalupaGramCore.option(.freeTranslation)
             self.isActive = isActive
             self.fromLang = fromLang
             self.toLang = toLang

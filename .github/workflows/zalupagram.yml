@@ -161,14 +161,19 @@ jobs:
           COMMIT=$(git -C "$SOURCE_DIR" rev-parse --short HEAD)
           if [ "$IS_RELEASE" = "true" ]; then
             TAG="v$ZG_VERSION"
-            gh release create "$TAG" --repo "$RELEASES_REPO" --latest \
-              --title "ZalupaGram для iOS $ZG_VERSION" \
-              --notes "Сборка $BUILD_NUMBER, коммит $COMMIT." \
-              ZalupaGram-*
+            set -- --latest --title "ZalupaGram для iOS $ZG_VERSION" --notes "Сборка $BUILD_NUMBER, коммит $COMMIT."
           else
             TAG="build-$BUILD_NUMBER"
-            gh release create "$TAG" --repo "$RELEASES_REPO" --prerelease \
-              --title "Тестовая сборка $ZG_VERSION ($BUILD_NUMBER)" \
-              --notes "Коммит $COMMIT." \
-              ZalupaGram-*
+            set -- --prerelease --title "Тестовая сборка $ZG_VERSION ($BUILD_NUMBER)" --notes "Коммит $COMMIT."
           fi
+          # GitHub sometimes answers 502: a half-made release of this run is
+          # removed and the upload repeated.
+          for attempt in 1 2 3 4; do
+            if gh release create "$TAG" --repo "$RELEASES_REPO" "$@" ZalupaGram-*; then
+              exit 0
+            fi
+            echo "Upload attempt $attempt failed, retrying"
+            sleep 30
+            gh release delete "$TAG" --repo "$RELEASES_REPO" --yes --cleanup-tag || true
+          done
+          exit 1

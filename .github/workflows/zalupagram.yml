@@ -71,7 +71,15 @@ jobs:
         env:
           TELEGRAM_API_ID: ${{ secrets.TELEGRAM_API_ID }}
           TELEGRAM_API_HASH: ${{ secrets.TELEGRAM_API_HASH }}
+          UPDATE_TOKEN: ${{ secrets.UPDATE_TOKEN }}
         run: |
+          # Read-only token of the releases repo for the in-app updater,
+          # zalupagram/ci/gen_sources.py masks it into the app.
+          if [ -n "$UPDATE_TOKEN" ]; then
+            printf '%s' "$UPDATE_TOKEN" > "$SOURCE_DIR/zalupagram/update_token.txt"
+          else
+            echo "Секрет UPDATE_TOKEN не задан, обновление внутри приложения работать не будет"
+          fi
           if [ -z "$TELEGRAM_API_ID" ] || [ -z "$TELEGRAM_API_HASH" ]; then
             echo "Секреты TELEGRAM_API_ID и TELEGRAM_API_HASH не заданы"
             exit 1

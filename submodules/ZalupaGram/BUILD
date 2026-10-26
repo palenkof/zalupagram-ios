@@ -1,14 +1,14 @@
 load("@build_bazel_rules_swift//swift:swift.bzl", "swift_library")
 
 genrule(
-    name = "ZalupaGramVersionSource",
-    srcs = ["//zalupagram:version.json"],
-    outs = ["ZalupaGramVersion.swift"],
-    cmd = """
-        version=$$(python3 -c "import json; print(json.load(open('$(location //zalupagram:version.json)'))['version'])")
-        echo "// Generated from zalupagram/version.json." > $@
-        echo "let zalupaGramVersion = \\"$$version\\"" >> $@
-    """,
+    name = "ZalupaGramGeneratedSource",
+    srcs = [
+        "//zalupagram:version.json",
+        "//zalupagram:update_token",
+    ],
+    tools = ["//zalupagram:ci/gen_sources.py"],
+    outs = ["ZalupaGramGenerated.swift"],
+    cmd = "python3 $(location //zalupagram:ci/gen_sources.py) --version $(location //zalupagram:version.json) --token-files \"$(locations //zalupagram:update_token)\" --out $@",
 )
 
 swift_library(
@@ -17,7 +17,7 @@ swift_library(
     srcs = glob([
         "Sources/**/*.swift",
     ]) + [
-        ":ZalupaGramVersionSource",
+        ":ZalupaGramGeneratedSource",
     ],
     copts = [
         "-warnings-as-errors",
@@ -32,6 +32,7 @@ swift_library(
         "//submodules/PresentationDataUtils:PresentationDataUtils",
         "//submodules/ZalupaGramCore",
         "//submodules/TextFormat:TextFormat",
+        "//submodules/OverlayStatusController:OverlayStatusController",
         "//third-party/ZipArchive:ZipArchive",
     ],
     visibility = [

@@ -15,11 +15,13 @@ private final class ZalupaGramSettingsArguments {
     let setOption: (ZalupaGramCore.Option, Bool) -> Void
     let clearExceptions: () -> Void
     let openFrameDelay: () -> Void
+    let checkForUpdates: () -> Void
 
-    init(setOption: @escaping (ZalupaGramCore.Option, Bool) -> Void, clearExceptions: @escaping () -> Void, openFrameDelay: @escaping () -> Void) {
+    init(setOption: @escaping (ZalupaGramCore.Option, Bool) -> Void, clearExceptions: @escaping () -> Void, openFrameDelay: @escaping () -> Void, checkForUpdates: @escaping () -> Void) {
         self.setOption = setOption
         self.clearExceptions = clearExceptions
         self.openFrameDelay = openFrameDelay
+        self.checkForUpdates = checkForUpdates
     }
 }
 
@@ -40,6 +42,7 @@ private enum ZalupaGramSettingsEntry: ItemListNodeEntry {
     case animationsHeader(String)
     case animationsDelay(String, String)
     case animationsInfo(String)
+    case checkForUpdates(String)
     case about(String)
 
     var section: ItemListSectionId {
@@ -50,7 +53,7 @@ private enum ZalupaGramSettingsEntry: ItemListNodeEntry {
             return ZalupaGramSettingsSection.chats.rawValue
         case .animationsHeader, .animationsDelay, .animationsInfo:
             return ZalupaGramSettingsSection.animations.rawValue
-        case .about:
+        case .checkForUpdates, .about:
             return ZalupaGramSettingsSection.about.rawValue
         }
     }
@@ -75,8 +78,10 @@ private enum ZalupaGramSettingsEntry: ItemListNodeEntry {
             return 21
         case .animationsInfo:
             return 22
-        case .about:
+        case .checkForUpdates:
             return 30
+        case .about:
+            return 31
         }
     }
 
@@ -127,6 +132,11 @@ private enum ZalupaGramSettingsEntry: ItemListNodeEntry {
                 return true
             }
             return false
+        case let .checkForUpdates(text):
+            if case .checkForUpdates(text) = rhs {
+                return true
+            }
+            return false
         case let .about(text):
             if case .about(text) = rhs {
                 return true
@@ -153,6 +163,10 @@ private enum ZalupaGramSettingsEntry: ItemListNodeEntry {
         case let .ghostClearExceptions(text):
             return ItemListActionItem(presentationData: presentationData, systemStyle: .glass, title: text, kind: .destructive, alignment: .natural, sectionId: self.section, style: .blocks, action: {
                 arguments.clearExceptions()
+            })
+        case let .checkForUpdates(text):
+            return ItemListActionItem(presentationData: presentationData, systemStyle: .glass, title: text, kind: .generic, alignment: .natural, sectionId: self.section, style: .blocks, action: {
+                arguments.checkForUpdates()
             })
         case let .animationsDelay(text, value):
             return ItemListDisclosureItem(presentationData: presentationData, systemStyle: .glass, title: text, label: value, sectionId: self.section, style: .blocks, action: {
@@ -194,6 +208,7 @@ private func zalupaGramSettingsEntries(presentationData: PresentationData) -> [Z
         "Напишите фразу, зажмите кнопку отправки и выберите «Анимировать фразу»."
     )))
 
+    entries.append(.checkForUpdates(t("Check for updates", "Проверить обновления")))
     let telegramVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? ""
     entries.append(.about("\(ZalupaGram.title) \(ZalupaGram.version)\n" + t("Based on Telegram ", "На основе Telegram ") + telegramVersion))
     return entries
@@ -221,6 +236,8 @@ public func zalupaGramSettingsController(context: AccountContext) -> ViewControl
         }, done: {
             reload()
         })
+    }, checkForUpdates: {
+        zalupaGramCheckForUpdates(context: context, manual: true)
     })
 
     let signal = combineLatest(context.sharedContext.presentationData, updated.get())

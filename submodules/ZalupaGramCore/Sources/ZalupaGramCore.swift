@@ -17,10 +17,11 @@ public enum ZalupaGramCore {
         case keepDeleted = "zg_keep_deleted" // Messages deleted by others stay in the chat.
         case keepEdits = "zg_keep_edits" // Previous versions of edited messages.
         case profileHistory = "zg_profile_history" // Name, username and photo changes of users.
+        case localPins = "zg_local_pins" // Pin chats over the server limit, in the app only.
 
         var defaultValue: Bool {
             switch self {
-            case .timeWithSeconds, .stripTracking, .localTranscribe, .freeTranslation, .noLinkPreviews, .keepDeleted, .keepEdits, .profileHistory:
+            case .timeWithSeconds, .stripTracking, .localTranscribe, .freeTranslation, .noLinkPreviews, .keepDeleted, .keepEdits, .profileHistory, .localPins:
                 return true
             default:
                 return false

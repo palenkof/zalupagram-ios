@@ -10,6 +10,28 @@ private struct TranscriptionResult {
     var isFinal: Bool
 }
 
+// ZalupaGram: the recognizer starts the text over after a pause, so a long
+// message ended up with its last part only. The parts are glued back here.
+private final class ZalupaGramTranscriptionParts {
+    var committed: [String] = []
+    var current: String = ""
+
+    private static func firstWord(_ text: String) -> Substring {
+        return text.split(separator: " ", maxSplits: 1).first ?? ""
+    }
+
+    func update(_ text: String) {
+        if !self.current.isEmpty && text.count < self.current.count && ZalupaGramTranscriptionParts.firstWord(text).lowercased() != ZalupaGramTranscriptionParts.firstWord(self.current).lowercased() {
+            self.committed.append(self.current)
+        }
+        self.current = text
+    }
+
+    var text: String {
+        return (self.committed + [self.current]).filter { !$0.isEmpty }.joined(separator: " ")
+    }
+}
+
 private func transcribeAudio(path: String, locale: String) -> Signal<TranscriptionResult?, NoError> {
     return Signal { subscriber in
         let disposable = MetaDisposable()
@@ -54,24 +76,28 @@ private func transcribeAudio(path: String, locale: String) -> Signal<Transcripti
                             request.addsPunctuation = true
                         }
                         request.requiresOnDeviceRecognition = speechRecognizer.supportsOnDeviceRecognition
-                        request.shouldReportPartialResults = false
-                        
+                        // ZalupaGram: partial results to notice where the text starts over.
+                        request.shouldReportPartialResults = true
+                        let parts = ZalupaGramTranscriptionParts()
+
                         let task = speechRecognizer.recognitionTask(with: request, resultHandler: { result, error in
                             if let result = result {
-                                var confidence: Float = 0.0
-                                for segment in result.bestTranscription.segments {
-                                    confidence += segment.confidence
-                                }
-                                confidence /= Float(result.bestTranscription.segments.count)
-                                subscriber.putNext(TranscriptionResult(text: result.bestTranscription.formattedString, confidence: confidence, isFinal: result.isFinal))
-                                
+                                parts.update(result.bestTranscription.formattedString)
                                 if result.isFinal {
+                                    var confidence: Float = 0.0
+                                    for segment in result.bestTranscription.segments {
+                                        confidence += segment.confidence
+                                    }
+                                    confidence /= Float(max(1, result.bestTranscription.segments.count))
+                                    subscriber.putNext(TranscriptionResult(text: parts.text, confidence: confidence, isFinal: true))
                                     subscriber.putCompletion()
                                 }
                             } else {
                                 print("transcribeAudio: locale: \(locale), error: \(String(describing: error))")
-                                
-                                subscriber.putNext(nil)
+
+                                // ZalupaGram: keep what was recognized before the error.
+                                let text = parts.text
+                                subscriber.putNext(text.isEmpty ? nil : TranscriptionResult(text: text, confidence: 0.5, isFinal: true))
                                 subscriber.putCompletion()
                             }
                         })

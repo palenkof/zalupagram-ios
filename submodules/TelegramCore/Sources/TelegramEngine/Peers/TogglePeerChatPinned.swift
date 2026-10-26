@@ -30,7 +30,12 @@ func _internal_toggleItemPinned(postbox: Postbox, accountPeerId: PeerId, locatio
                     }
                 }
             }
+            // ZalupaGram: local pins over the limit don't count.
+            let zalupaGramLocalPins = zalupaGramLocalPinnedItemIds(transaction: transaction, groupId: groupId)
             let sameKind = itemIds.filter { item in
+                if zalupaGramLocalPins.contains(item) {
+                    return false
+                }
                 switch itemId {
                     case let .peer(lhsPeerId):
                         if case let .peer(rhsPeerId) = item {
@@ -57,6 +62,10 @@ func _internal_toggleItemPinned(postbox: Postbox, accountPeerId: PeerId, locatio
             }
             
             let count = sameKind.count + additionalCount
+            // ZalupaGram: over the limit the chat is pinned only in the app.
+            if zalupaGramToggleLocalPin(transaction: transaction, groupId: groupId, itemId: itemId, limitExceeded: count > limitCount && itemIds.firstIndex(of: itemId) == nil) {
+                return .done
+            }
             if count > limitCount, itemIds.firstIndex(of: itemId) == nil {
                 return .limitExceeded(count: sameKind.count, limit: limitCount)
             } else {

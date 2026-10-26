@@ -482,6 +482,26 @@ func chatContextMenuItems(context: AccountContext, peerId: EnginePeer.Id, promoI
                                     })))
                                 }
 
+                                // ZalupaGram: chats hidden behind a PIN and chat statistics.
+                                items.append(.action(ContextMenuActionItem(text: zalupaGramHideChatTitle(context: context, peerId: peerId, strings: strings), icon: { _ in
+                                    return nil
+                                }, action: { _, f in
+                                    f(.default)
+                                    zalupaGramToggleHiddenChat(context: context, peerId: peerId, present: { controller in
+                                        chatListController?.present(controller, in: .window(.root))
+                                    })
+                                })))
+                                items.append(.action(ContextMenuActionItem(text: zalupaGramChatStatsTitle(strings: strings), icon: { _ in
+                                    return nil
+                                }, action: { _, f in
+                                    f(.default)
+                                    zalupaGramOpenChatStats(context: context, peerId: peerId, present: { controller in
+                                        chatListController?.present(controller, in: .window(.root))
+                                    }, push: { controller in
+                                        chatListController?.push(controller)
+                                    })
+                                })))
+
                                 // ZalupaGram: delete all your own messages in a group.
                                 var zalupaGramIsGroup = false
                                 if case .legacyGroup = peer {

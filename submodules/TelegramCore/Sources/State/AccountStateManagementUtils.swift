@@ -5191,9 +5191,11 @@ func replayFinalState(
                                 }
                         }
                     case let .reorder(itemIds):
-                        let currentItemIds = transaction.getPinnedItemIds(groupId: groupId)
+                        // ZalupaGram: the local pins over the limit stay after the server ones.
+                        let zalupaGramLocalPins = zalupaGramLocalPinnedItemIds(transaction: transaction, groupId: groupId)
+                        let currentItemIds = transaction.getPinnedItemIds(groupId: groupId).filter { !zalupaGramLocalPins.contains($0) }
                         if Set(itemIds) == Set(currentItemIds) {
-                            transaction.setPinnedItemIds(groupId: groupId, itemIds: itemIds)
+                            transaction.setPinnedItemIds(groupId: groupId, itemIds: zalupaGramWithLocalPins(transaction: transaction, groupId: groupId, serverItemIds: itemIds))
                         } else {
                             addSynchronizePinnedChatsOperation(transaction: transaction, groupId: groupId)
                         }

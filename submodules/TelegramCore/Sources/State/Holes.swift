@@ -1377,7 +1377,8 @@ func fetchChatListHole(postbox: Postbox, network: Network, accountPeerId: PeerId
             }
             
             if let replacePinnedItemIds = fetchedChats.pinnedItemIds {
-                transaction.setPinnedItemIds(groupId: groupId, itemIds: replacePinnedItemIds.map(PinnedItemId.peer))
+                // ZalupaGram: with the local pins over the limit.
+                transaction.setPinnedItemIds(groupId: groupId, itemIds: zalupaGramWithLocalPins(transaction: transaction, groupId: groupId, serverItemIds: replacePinnedItemIds.map(PinnedItemId.peer)))
             }
             
             for (peerId, summary) in fetchedChats.mentionTagSummaries {

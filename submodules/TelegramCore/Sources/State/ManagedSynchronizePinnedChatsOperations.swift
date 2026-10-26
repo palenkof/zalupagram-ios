@@ -113,14 +113,16 @@ func managedSynchronizePinnedChatsOperations(postbox: Postbox, network: Network,
 }
 
 private func synchronizePinnedChats(transaction: Transaction, postbox: Postbox, network: Network, accountPeerId: PeerId, stateManager: AccountStateManager, groupId: PeerGroupId, operation: SynchronizePinnedChatsOperation) -> Signal<Void, NoError> {
-    let initialRemoteItemIds = operation.previousItemIds
+    // ZalupaGram: local pins over the limit are never sent to the server.
+    let zalupaGramLocalPins = zalupaGramLocalPinnedItemIds(transaction: transaction, groupId: groupId)
+    let initialRemoteItemIds = operation.previousItemIds.filter { !zalupaGramLocalPins.contains($0) }
     let initialRemoteItemIdsWithoutSecretChats = initialRemoteItemIds.filter { item in
         switch item {
             case let .peer(peerId):
                 return peerId.namespace != Namespaces.Peer.SecretChat
         }
     }
-    let localItemIds = transaction.getPinnedItemIds(groupId: groupId)
+    let localItemIds = transaction.getPinnedItemIds(groupId: groupId).filter { !zalupaGramLocalPins.contains($0) }
     let localItemIdsWithoutSecretChats = localItemIds.filter { item in
         switch item {
             case let .peer(peerId):
@@ -225,7 +227,7 @@ private func synchronizePinnedChats(transaction: Transaction, postbox: Postbox, 
             return postbox.transaction { transaction -> Signal<Void, NoError> in
                 updatePeers(transaction: transaction, accountPeerId: accountPeerId, peers: parsedPeers)
                 
-                transaction.setPinnedItemIds(groupId: groupId, itemIds: resultingItemIds)
+                transaction.setPinnedItemIds(groupId: groupId, itemIds: zalupaGramWithLocalPins(transaction: transaction, groupId: groupId, serverItemIds: resultingItemIds))
                 
                 transaction.updateCurrentPeerNotificationSettings(notificationSettings)
                 

@@ -154,19 +154,47 @@ private func startDownload(_ release: ReleaseInfo, token: String, context: Accou
     })
 }
 
+// The alert can't scroll: only the feature names from the release notes,
+// "- 📝 Notes on messages: how to use…" → "• 📝 Notes on messages".
+private func shortNotes(_ notes: String, ru: Bool) -> String {
+    let maxLines = 8
+    var lines: [String] = []
+    for rawLine in notes.components(separatedBy: .newlines) {
+        var line = rawLine.trimmingCharacters(in: .whitespaces)
+        guard line.hasPrefix("- ") else {
+            continue
+        }
+        line.removeFirst(2)
+        line = line.replacingOccurrences(of: "**", with: "")
+        if let colon = line.firstIndex(of: ":") {
+            line = String(line[..<colon])
+        }
+        if line.count > 48 {
+            line = String(line.prefix(48)) + "…"
+        }
+        lines.append("• " + line)
+    }
+    if lines.count > maxLines {
+        let more = lines.count - maxLines
+        lines = Array(lines.prefix(maxLines))
+        lines.append(ru ? "и ещё \(more)" : "and \(more) more")
+    }
+    return lines.joined(separator: "\n")
+}
+
 private func presentUpdateAlert(_ release: ReleaseInfo, token: String, context: AccountContext) {
     let presentationData = context.sharedContext.currentPresentationData.with { $0 }
     let ru = zalupaGramIsRussian(presentationData.strings)
     let version = String(versionParts(release.version).map { String($0) }.joined(separator: "."))
     let sizeText = release.size > 0 ? String(format: ru ? " (%.0f МБ)" : " (%.0f MB)", Double(release.size) / 1024.0 / 1024.0) : ""
     var text = (ru ? "Доступна версия \(version)" : "Version \(version) is available") + sizeText + "."
-    let notes = release.notes.trimmingCharacters(in: .whitespacesAndNewlines)
+    let notes = shortNotes(release.notes, ru: ru)
     if !notes.isEmpty {
         text += "\n\n" + notes
     }
     text += ru
-        ? "\n\nIPA скачается и откроется меню «Поделиться»: сохраните в «Файлы» и поставьте через iloader на ПК или откройте в SideStore."
-        : "\n\nThe IPA is downloaded and the share sheet opens: save it to Files and install with iloader on the PC, or open it in SideStore."
+        ? "\n\nСохраните IPA в «Файлы» и поставьте через iloader."
+        : "\n\nSave the IPA to Files and install it with iloader."
     present(textAlertController(context: context, title: "ZalupaGram", text: text, actions: [
         TextAlertAction(type: .genericAction, title: ru ? "Позже" : "Later", action: {
             UserDefaults.standard.set(release.version, forKey: dismissedVersionKey)

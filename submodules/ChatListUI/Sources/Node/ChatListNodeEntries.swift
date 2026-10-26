@@ -4,6 +4,7 @@ import TelegramCore
 import TelegramPresentationData
 import MergeLists
 import AccountContext
+import ZalupaGram
 
 enum ChatListNodeEntryId: Hashable {
     case Header
@@ -684,6 +685,10 @@ func chatListNodeEntriesForView(view: EngineChatList, state: ChatListNodeState, 
             continue loop
         }
         if let peerId = peerId, state.pendingRemovalItemIds.contains(ChatListNodeState.ItemId(peerId: peerId, threadId: threadId)) {
+            continue loop
+        }
+        // ZalupaGram: chats hidden behind the PIN.
+        if let peerId = peerId, threadId == nil, ZalupaGramHiddenChats.isHidden(accountPeerId: accountPeerId.toInt64(), peerId: peerId.toInt64()) {
             continue loop
         }
         var updatedMessages = entry.messages

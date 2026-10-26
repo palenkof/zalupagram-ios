@@ -24,6 +24,7 @@ import UndoUI
 import NewSessionInfoScreen
 import PresentationDataUtils
 import GlobalControlPanelsContext
+import ZalupaGram
 
 public enum ChatListNodeMode {
     case chatList(appendContacts: Bool)
@@ -1969,6 +1970,11 @@ public final class ChatListNode: ListViewImpl {
         } else {
             savedMessagesPeer = .single(nil)
         }
+        // ZalupaGram: the list is rebuilt when the hidden chats change.
+        let savedMessagesPeerAndHiddenChats: Signal<EnginePeer?, NoError> = combineLatest(savedMessagesPeer, ZalupaGramHiddenChats.updates)
+        |> map { peer, _ -> EnginePeer? in
+            return peer
+        }
         
         let hideArchivedFolderByDefault = context.engine.data.subscribe(TelegramEngine.EngineData.Item.Configuration.ApplicationSpecificPreference(key: ApplicationSpecificPreferencesKeys.chatArchiveSettings))
         |> map { view -> Bool in
@@ -2198,7 +2204,7 @@ public final class ChatListNode: ListViewImpl {
             hideArchivedFolderByDefault,
             displayArchiveIntro,
             storageInfo,
-            savedMessagesPeer,
+            savedMessagesPeerAndHiddenChats,
             chatListViewUpdate,
             self.statePromise.get(),
             contacts,

@@ -19,6 +19,11 @@ private struct Feature {
 }
 
 private let features: [Feature] = [
+    Feature(version: "0.5.0", icon: "🙈", title: ("Hidden chats", "Скрытые чаты"), text: ("Behind a PIN: hold a chat → «Hide the chat», show them in ZalupaGram settings.", "Под PIN: зажмите чат → «Скрыть чат», показать — в настройках ZalupaGram.")),
+    Feature(version: "0.5.0", icon: "🚨", title: ("Panic", "Паника"), text: ("zalupagram://panic hides them and locks the app, put it on Back Tap.", "zalupagram://panic прячет их и блокирует приложение, повесьте на стук по задней панели.")),
+    Feature(version: "0.5.0", icon: "📌", title: ("More than 5 pinned chats", "Больше 5 закреплённых"), text: ("Over the limit chats are pinned in the app only.", "Сверх лимита чаты закрепляются только в приложении.")),
+    Feature(version: "0.5.0", icon: "📊", title: ("Chat statistics", "Статистика чата"), text: ("Who writes how much, when, answer times, top words, media: hold a chat.", "Кто сколько пишет, когда, как быстро отвечает, частые слова, медиа: зажмите чат.")),
+    Feature(version: "0.5.0", icon: "🎨", title: ("ZalupaGram theme", "Тема ZalupaGram"), text: ("Dark and light, violet like the icon.", "Тёмная и светлая, фиолетовая, как иконка.")),
     Feature(version: "0.4.0", icon: "📝", title: ("Notes on messages", "Заметки к сообщениям"), text: ("Message menu → «Add a note», only you see it, marked with 📝.", "Меню сообщения → «Добавить заметку», видна только вам, отмечена 📝.")),
     Feature(version: "0.4.0", icon: "📋", title: ("Reply templates", "Шаблоны ответов"), text: ("Message menu → «Reply with a template», saved from the send button menu.", "Меню сообщения → «Ответить шаблоном», сохраняются из меню кнопки отправки.")),
     Feature(version: "0.4.0", icon: "🌐", title: ("Translate before sending", "Перевод перед отправкой"), text: ("Hold the send button → «Translate the text».", "Зажмите кнопку отправки → «Перевести текст».")),

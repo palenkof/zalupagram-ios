@@ -82,6 +82,31 @@ private func templatePreview(_ text: String) -> String {
     return line
 }
 
+// A menu at the send button opens above it and can't scroll: long lists
+// go by pages, the rest behind «More…».
+func zalupaGramPagedMenuItems(_ items: [ContextMenuItem], strings: PresentationStrings, pageSize: Int = 5) -> [ContextMenuItem] {
+    if items.count <= pageSize + 1 {
+        return items
+    }
+    let rest = Array(items.dropFirst(pageSize))
+    var page = Array(items.prefix(pageSize))
+    page.append(.separator)
+    page.append(.action(ContextMenuActionItem(text: ZalupaGram.tr(strings, "More…", "Ещё…"), icon: { _ in
+        return nil
+    }, action: { c, _ in
+        var next: [ContextMenuItem] = []
+        next.append(.action(ContextMenuActionItem(text: strings.Common_Back, icon: { theme in
+            return generateTintedImage(image: UIImage(bundleImageName: "Chat/Context Menu/Back"), color: theme.contextMenu.primaryColor)
+        }, iconPosition: .left, action: { c, _ in
+            c?.popItems()
+        })))
+        next.append(.separator)
+        next.append(contentsOf: zalupaGramPagedMenuItems(rest, strings: strings, pageSize: pageSize))
+        c?.pushItems(items: .single(ContextController.Items(content: .list(next))))
+    })))
+    return page
+}
+
 // The list of templates for a context menu, with «Back» on top.
 public func zalupaGramTemplateMenuItems(strings: PresentationStrings, back: ((ContextControllerProtocol?) -> Void)?, chosen: @escaping (String, ContextControllerProtocol?) -> Void) -> [ContextMenuItem] {
     var items: [ContextMenuItem] = []
@@ -93,13 +118,15 @@ public func zalupaGramTemplateMenuItems(strings: PresentationStrings, back: ((Co
         })))
         items.append(.separator)
     }
+    var templateItems: [ContextMenuItem] = []
     for text in ZalupaGramTemplates.all {
-        items.append(.action(ContextMenuActionItem(text: templatePreview(text), icon: { _ in
+        templateItems.append(.action(ContextMenuActionItem(text: templatePreview(text), icon: { _ in
             return nil
         }, action: { c, _ in
             chosen(text, c)
         })))
     }
+    items.append(contentsOf: zalupaGramPagedMenuItems(templateItems, strings: strings))
     return items
 }
 
@@ -271,7 +298,7 @@ public func zalupaGramTranslateMenuItems(strings: PresentationStrings, chosen: @
             chosen(language.code)
         })))
     }
-    return items
+    return zalupaGramPagedMenuItems(items, strings: strings)
 }
 
 // Translates through Google, the result comes on the main queue.

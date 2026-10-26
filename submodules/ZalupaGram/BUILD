@@ -41,6 +41,7 @@ swift_library(
         "//submodules/PromptUI:PromptUI",
         "//submodules/AnimatedStickerNode:AnimatedStickerNode",
         "//submodules/WebPBinding:WebPBinding",
+        "//submodules/TelegramUIPreferences:TelegramUIPreferences",
     ],
     visibility = [
         "//visibility:public",

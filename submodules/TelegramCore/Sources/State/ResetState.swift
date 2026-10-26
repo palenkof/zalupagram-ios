@@ -123,7 +123,8 @@ func _internal_resetAccountState(postbox: Postbox, network: Network, accountPeer
                 }
                 
                 if let replacePinnedItemIds = fetchedChats.pinnedItemIds {
-                    transaction.setPinnedItemIds(groupId: .root, itemIds: replacePinnedItemIds.map(PinnedItemId.peer))
+                    // ZalupaGram: with the local pins over the limit.
+                    transaction.setPinnedItemIds(groupId: .root, itemIds: zalupaGramWithLocalPins(transaction: transaction, groupId: .root, serverItemIds: replacePinnedItemIds.map(PinnedItemId.peer)))
                 }
                 
                 for (peerId, summary) in fetchedChats.mentionTagSummaries {

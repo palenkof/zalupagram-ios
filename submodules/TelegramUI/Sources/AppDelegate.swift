@@ -2651,6 +2651,9 @@ private func extractAccountManagerState(records: AccountRecordsView<TelegramAcco
         |> deliverOnMainQueue).start(next: { sharedContext, context, authContext in
             if let authContext = authContext, let confirmationCode = parseConfirmationCodeUrl(sharedContext: sharedContext, url: url) {
                 authContext.rootController.applyConfirmationCode(confirmationCode)
+            } else if let context = context, url.scheme?.lowercased() == "zalupagram", url.host?.lowercased() == "panic" {
+                // ZalupaGram: panic from a shortcut, for example Back Tap.
+                zalupaGramPanic(context: context.context)
             } else if let context = context {
                 if (WalletContext.isTonConnectUrl(url.absoluteString) || url.scheme?.lowercased() == "ton"), !WalletConfiguration.with(appConfiguration: context.context.currentAppConfiguration.with { $0 }).isAvailable {
                     self.presentWalletUnavailable(in: context)

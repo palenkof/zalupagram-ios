@@ -188,3 +188,76 @@ func zalupaGramRecordProfileChange(transaction: Transaction, accountPeerId: Peer
         keeper.addProfileChange(peerId: previous.id.toInt64(), change)
     }
 }
+
+// ZalupaGram fork: pinned chats over the server limit. The server keeps up
+// to 5 (10 with Premium), the rest are pinned only in this app: they are
+// kept in the account's preferences, never sent with the pinned order and
+// added back whenever the server order replaces the local one.
+private let zalupaGramLocalPinsKey: ValueBoxKey = {
+    let key = ValueBoxKey(length: 4)
+    key.setInt32(0, value: 0x5A470001)
+    return key
+}()
+
+private struct ZalupaGramLocalPins: Codable, Equatable {
+    struct Group: Codable, Equatable {
+        var groupId: Int32
+        var peerIds: [Int64]
+    }
+
+    var groups: [Group]
+}
+
+func zalupaGramLocalPinnedItemIds(transaction: Transaction, groupId: PeerGroupId) -> [PinnedItemId] {
+    let value = transaction.getPreferencesEntry(key: zalupaGramLocalPinsKey)?.get(ZalupaGramLocalPins.self) ?? ZalupaGramLocalPins(groups: [])
+    let peerIds = value.groups.first(where: { $0.groupId == groupId.rawValue })?.peerIds ?? []
+    return peerIds.map { .peer(PeerId($0)) }
+}
+
+private func zalupaGramSetLocalPinnedItemIds(transaction: Transaction, groupId: PeerGroupId, itemIds: [PinnedItemId]) {
+    var value = transaction.getPreferencesEntry(key: zalupaGramLocalPinsKey)?.get(ZalupaGramLocalPins.self) ?? ZalupaGramLocalPins(groups: [])
+    value.groups.removeAll(where: { $0.groupId == groupId.rawValue })
+    let peerIds = itemIds.map { itemId -> Int64 in
+        switch itemId {
+        case let .peer(peerId):
+            return peerId.toInt64()
+        }
+    }
+    if !peerIds.isEmpty {
+        value.groups.append(ZalupaGramLocalPins.Group(groupId: groupId.rawValue, peerIds: peerIds))
+    }
+    transaction.setPreferencesEntry(key: zalupaGramLocalPinsKey, value: PreferencesEntry(value))
+}
+
+// The server pinned order with the local pins after it.
+func zalupaGramWithLocalPins(transaction: Transaction, groupId: PeerGroupId, serverItemIds: [PinnedItemId]) -> [PinnedItemId] {
+    var result = serverItemIds
+    for itemId in zalupaGramLocalPinnedItemIds(transaction: transaction, groupId: groupId) where !result.contains(itemId) {
+        if case let .peer(peerId) = itemId, transaction.getPeer(peerId) != nil, transaction.getPeerChatListInclusion(peerId) != .notIncluded {
+            result.append(itemId)
+        }
+    }
+    return result
+}
+
+// Pins or unpins over the limit locally. Returns false when the usual
+// server pinning has to be done.
+func zalupaGramToggleLocalPin(transaction: Transaction, groupId: PeerGroupId, itemId: PinnedItemId, limitExceeded: Bool) -> Bool {
+    var localItemIds = zalupaGramLocalPinnedItemIds(transaction: transaction, groupId: groupId)
+    var itemIds = transaction.getPinnedItemIds(groupId: groupId)
+    if let index = localItemIds.firstIndex(of: itemId) {
+        localItemIds.remove(at: index)
+        itemIds.removeAll(where: { $0 == itemId })
+        zalupaGramSetLocalPinnedItemIds(transaction: transaction, groupId: groupId, itemIds: localItemIds)
+        transaction.setPinnedItemIds(groupId: groupId, itemIds: itemIds)
+        return true
+    }
+    if limitExceeded && ZalupaGramCore.option(.localPins) && !itemIds.contains(itemId) {
+        localItemIds.append(itemId)
+        itemIds.append(itemId)
+        zalupaGramSetLocalPinnedItemIds(transaction: transaction, groupId: groupId, itemIds: localItemIds)
+        transaction.setPinnedItemIds(groupId: groupId, itemIds: itemIds)
+        return true
+    }
+    return false
+}

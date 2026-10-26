@@ -421,7 +421,20 @@ public final class ChatMessageInteractiveFileNode: ASDisplayNode {
                 self.audioTranscriptionState = .inProgress
                 self.requestUpdateLayout(true)
                 
-                if context.sharedContext.immediateExperimentalUISettings.localTranscription || zalupaGramLocalTranscription {
+                if zalupaGramLocalTranscription {
+                    // ZalupaGram: on the phone, long messages in pieces.
+                    self.transcribeDisposable = (zalupaGramTranscribeLocally(context: context, messageId: message.id, appLocale: presentationData.strings.baseLanguageCode)
+                    |> deliverOnMainQueue).startStrict(next: { [weak self] success in
+                        guard let strongSelf = self, !success else {
+                            return
+                        }
+                        strongSelf.audioTranscriptionState = .collapsed
+                        strongSelf.requestUpdateLayout(true)
+                    }, completed: { [weak self] in
+                        self?.transcribeDisposable?.dispose()
+                        self?.transcribeDisposable = nil
+                    })
+                } else if context.sharedContext.immediateExperimentalUISettings.localTranscription {
                     let appLocale = presentationData.strings.baseLanguageCode
                     
                     let signal: Signal<LocallyTranscribedAudio?, NoError> = context.engine.data.get(TelegramEngine.EngineData.Item.Messages.Message(id: message.id))

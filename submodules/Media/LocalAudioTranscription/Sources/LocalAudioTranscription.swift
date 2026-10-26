@@ -124,6 +124,12 @@ private func transcribeAudio(path: String, locale: String) -> Signal<Transcripti
 public struct LocallyTranscribedAudio {
     public var text: String
     public var isFinal: Bool
+
+    // ZalupaGram: the texts of the pieces of a long message are joined outside.
+    public init(text: String, isFinal: Bool) {
+        self.text = text
+        self.isFinal = isFinal
+    }
 }
 
 public func transcribeAudio(path: String, appLocale: String) -> Signal<LocallyTranscribedAudio?, NoError> {

@@ -1,5 +1,6 @@
 import Foundation
 import UIKit
+import ZalupaGram
 import AsyncDisplayKit
 import Postbox
 import SwiftSignalKit
@@ -5083,7 +5084,7 @@ class ChatControllerNode: ASDisplayNode, ASScrollViewDelegate {
             
             var messages: [EnqueueMessage] = []
             
-            let effectiveInputText: NSAttributedString
+            var effectiveInputText: NSAttributedString
             let composeContent = effectivePresentationInterfaceState.interfaceState.composeInputState.content
             let isNewMessage = effectivePresentationInterfaceState.interfaceState.editMessage == nil
             let requiresPremiumRichContent = isNewMessage
@@ -5139,6 +5140,8 @@ class ChatControllerNode: ASDisplayNode, ASScrollViewDelegate {
             } else {
                 effectiveInputText = expandedInputStateAttributedString(effectivePresentationInterfaceState.interfaceState.composeInputState.inputText)
             }
+            // ZalupaGram: strip tracking parameters from links.
+            effectiveInputText = zalupaGramStripTrackingFromLinks(effectiveInputText)
 
             // Rich-message routing: new messages only (editMessage == nil), structural content the entity
             // set can't express (heading/list/table/media), and non-empty. Entity-expressible content

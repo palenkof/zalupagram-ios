@@ -10,10 +10,11 @@ public enum ZalupaGramCore {
         case ghostTyping = "zg_ghost_typing" // Don't send "typing...".
         case timeWithSeconds = "zg_time_with_seconds" // 14:05:37 in messages.
         case hideSponsored = "zg_hide_sponsored" // No ads in channels.
+        case stripTracking = "zg_strip_tracking" // Remove utm_* and similar from sent links.
 
         var defaultValue: Bool {
             switch self {
-            case .timeWithSeconds:
+            case .timeWithSeconds, .stripTracking:
                 return true
             default:
                 return false

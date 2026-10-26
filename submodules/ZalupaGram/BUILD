@@ -31,6 +31,7 @@ swift_library(
         "//submodules/ItemListUI:ItemListUI",
         "//submodules/PresentationDataUtils:PresentationDataUtils",
         "//submodules/ZalupaGramCore",
+        "//submodules/TextFormat:TextFormat",
         "//third-party/ZipArchive:ZipArchive",
     ],
     visibility = [

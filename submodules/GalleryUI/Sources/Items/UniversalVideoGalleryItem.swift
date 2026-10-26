@@ -3560,7 +3560,8 @@ final class UniversalVideoGalleryItemNode: ZoomableContentGalleryItemNode {
             
             if isSettings {
                 let sliderValuePromise = ValuePromise<Double?>(nil)
-                topItems.append(.custom(SliderContextItem(title: strongSelf.presentationData.strings.Gallery_VideoSettings_SpeedControlTitle, minValue: 0.2, maxValue: 2.5, value: status.baseRate, valueChanged: { [weak self] newValue, _ in
+                // ZalupaGram: speed up to 4x.
+                topItems.append(.custom(SliderContextItem(title: strongSelf.presentationData.strings.Gallery_VideoSettings_SpeedControlTitle, minValue: 0.2, maxValue: 4.0, value: status.baseRate, valueChanged: { [weak self] newValue, _ in
                     guard let strongSelf = self, let videoNode = strongSelf.videoNode else {
                         return
                     }

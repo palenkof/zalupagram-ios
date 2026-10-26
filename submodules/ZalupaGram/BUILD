@@ -42,6 +42,7 @@ swift_library(
         "//submodules/AnimatedStickerNode:AnimatedStickerNode",
         "//submodules/WebPBinding:WebPBinding",
         "//submodules/TelegramUIPreferences:TelegramUIPreferences",
+        "//third-party/ZalupaGramXray:ZalupaGramXray",
     ],
     visibility = [
         "//visibility:public",

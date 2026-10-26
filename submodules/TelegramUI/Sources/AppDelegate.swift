@@ -1282,6 +1282,12 @@ private func extractAccountManagerState(records: AccountRecordsView<TelegramAcco
         |> mapToSignal { sharedApplicationContext, loggingSettings -> Signal<SharedApplicationContext, NoError> in
             // ZalupaGram: always keep file logs for the logs button in Settings.
             Logger.shared.logToFile = true
+            // ZalupaGram: the in-app VPN starts before Telegram connects through it.
+            let zalupaGramAccountManager = sharedApplicationContext.sharedContext.accountManager
+            Queue.mainQueue().async {
+                ZalupaGramVpn.shared.start()
+                ZalupaGramVpn.shared.attach(accountManager: zalupaGramAccountManager)
+            }
             Logger.shared.logToConsole = loggingSettings.logToConsole
             Logger.shared.redactSensitiveData = loggingSettings.redactSensitiveData
             

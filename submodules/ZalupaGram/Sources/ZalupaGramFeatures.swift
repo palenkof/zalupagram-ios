@@ -19,6 +19,7 @@ private struct Feature {
 }
 
 private let features: [Feature] = [
+    Feature(version: "0.6.0", icon: "🛡", title: ("VPN for ZalupaGram", "VPN для ZalupaGram"), text: ("Subscriptions like in Happ: vless, vmess, trojan, shadowsocks through Xray inside the app, only Telegram goes through it.", "Подписки как в Happ: vless, vmess, trojan, shadowsocks через Xray внутри приложения, через него идёт только Telegram.")),
     Feature(version: "0.5.0", icon: "🙈", title: ("Hidden chats", "Скрытые чаты"), text: ("Behind a PIN: hold a chat → «Hide the chat», show them in ZalupaGram settings.", "Под PIN: зажмите чат → «Скрыть чат», показать — в настройках ZalupaGram.")),
     Feature(version: "0.5.0", icon: "🚨", title: ("Panic", "Паника"), text: ("zalupagram://panic hides them and locks the app, put it on Back Tap.", "zalupagram://panic прячет их и блокирует приложение, повесьте на стук по задней панели.")),
     Feature(version: "0.5.0", icon: "📌", title: ("More than 5 pinned chats", "Больше 5 закреплённых"), text: ("Over the limit chats are pinned in the app only.", "Сверх лимита чаты закрепляются только в приложении.")),

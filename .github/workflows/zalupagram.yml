@@ -24,6 +24,8 @@ jobs:
       OUTPUT_DIR: /Users/Shared/zg-out
       BAZEL_CACHE_DIR: /Users/Shared/zg-bazel-cache
       RELEASES_REPO: palenkof/zalupagram-ios-releases
+      # Xray-core for the in-app VPN, the same version as in ZalupaGram Desktop.
+      XRAY_TAG: v26.10.21
 
     steps:
       - name: Free disk space
@@ -57,6 +59,37 @@ jobs:
           XCODE_VERSION=$(python3 -c 'import json;print(json.load(open("'$SOURCE_DIR'/versions.json"))["xcode"])')
           sudo xcode-select -s "/Applications/Xcode_$XCODE_VERSION.app/Contents/Developer"
           xcodebuild -version
+
+      # Xray is built once per version and kept in the cache.
+      - name: Xray cache key
+        run: |
+          cd "$SOURCE_DIR"
+          HASH=$(cat zalupagram/xray/main.go zalupagram/xray/build_ios.sh | shasum -a 256 | cut -c1-16)
+          echo "XRAY_KEY=xray-$XRAY_TAG-$HASH" >> "$GITHUB_ENV"
+
+      - name: Restore Xray
+        id: xray-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: /Users/Shared/telegram-ios/third-party/ZalupaGramXray/ZGXray.xcframework
+          key: ${{ env.XRAY_KEY }}
+
+      - uses: actions/setup-go@v5
+        if: steps.xray-cache.outputs.cache-hit != 'true'
+        with:
+          go-version: stable
+          cache: false
+
+      - name: Build Xray
+        if: steps.xray-cache.outputs.cache-hit != 'true'
+        run: bash "$SOURCE_DIR/zalupagram/xray/build_ios.sh" "$XRAY_TAG"
+
+      - name: Save Xray
+        if: steps.xray-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: /Users/Shared/telegram-ios/third-party/ZalupaGramXray/ZGXray.xcframework
+          key: ${{ env.XRAY_KEY }}
 
       - name: Read version
         run: |

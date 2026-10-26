@@ -24,8 +24,9 @@ private final class ZalupaGramSettingsArguments {
     let hiddenAction: () -> Void
     let changePin: () -> Void
     let applyTheme: (ZalupaGramThemeVariant) -> Void
+    let openVpn: () -> Void
 
-    init(setOption: @escaping (ZalupaGramCore.Option, Bool) -> Void, clearExceptions: @escaping () -> Void, openFrameDelay: @escaping () -> Void, checkForUpdates: @escaping () -> Void, openFeatures: @escaping () -> Void, exportSettings: @escaping () -> Void, importSettings: @escaping () -> Void, openDeleted: @escaping () -> Void, openTemplates: @escaping () -> Void, hiddenAction: @escaping () -> Void, changePin: @escaping () -> Void, applyTheme: @escaping (ZalupaGramThemeVariant) -> Void) {
+    init(setOption: @escaping (ZalupaGramCore.Option, Bool) -> Void, clearExceptions: @escaping () -> Void, openFrameDelay: @escaping () -> Void, checkForUpdates: @escaping () -> Void, openFeatures: @escaping () -> Void, exportSettings: @escaping () -> Void, importSettings: @escaping () -> Void, openDeleted: @escaping () -> Void, openTemplates: @escaping () -> Void, hiddenAction: @escaping () -> Void, changePin: @escaping () -> Void, applyTheme: @escaping (ZalupaGramThemeVariant) -> Void, openVpn: @escaping () -> Void) {
         self.setOption = setOption
         self.clearExceptions = clearExceptions
         self.openFrameDelay = openFrameDelay
@@ -38,10 +39,12 @@ private final class ZalupaGramSettingsArguments {
         self.hiddenAction = hiddenAction
         self.changePin = changePin
         self.applyTheme = applyTheme
+        self.openVpn = openVpn
     }
 }
 
 private enum ZalupaGramSettingsSection: Int32 {
+    case vpn
     case ghost
     case chats
     case keep
@@ -53,6 +56,7 @@ private enum ZalupaGramSettingsSection: Int32 {
 }
 
 private enum ZalupaGramSettingsEntry: ItemListNodeEntry {
+    case vpn(String, String)
     case ghostHeader(String)
     case ghostOption(Int32, ZalupaGramCore.Option, String, Bool)
     case ghostInfo(String)
@@ -85,6 +89,8 @@ private enum ZalupaGramSettingsEntry: ItemListNodeEntry {
 
     var section: ItemListSectionId {
         switch self {
+        case .vpn:
+            return ZalupaGramSettingsSection.vpn.rawValue
         case .ghostHeader, .ghostOption, .ghostInfo, .ghostClearExceptions:
             return ZalupaGramSettingsSection.ghost.rawValue
         case .chatsHeader, .chatsOption, .chatsTemplates, .chatsInfo:
@@ -106,6 +112,8 @@ private enum ZalupaGramSettingsEntry: ItemListNodeEntry {
 
     var stableId: Int32 {
         switch self {
+        case .vpn:
+            return -1
         case .ghostHeader:
             return 0
         case let .ghostOption(index, _, _, _):
@@ -169,6 +177,11 @@ private enum ZalupaGramSettingsEntry: ItemListNodeEntry {
 
     static func ==(lhs: ZalupaGramSettingsEntry, rhs: ZalupaGramSettingsEntry) -> Bool {
         switch lhs {
+        case let .vpn(text, value):
+            if case .vpn(text, value) = rhs {
+                return true
+            }
+            return false
         case let .ghostHeader(text):
             if case .ghostHeader(text) = rhs {
                 return true
@@ -352,6 +365,10 @@ private enum ZalupaGramSettingsEntry: ItemListNodeEntry {
             return ItemListActionItem(presentationData: presentationData, systemStyle: .glass, title: text, kind: .generic, alignment: .natural, sectionId: self.section, style: .blocks, action: {
                 arguments.checkForUpdates()
             })
+        case let .vpn(text, value):
+            return ItemListDisclosureItem(presentationData: presentationData, systemStyle: .glass, title: text, label: value, sectionId: self.section, style: .blocks, action: {
+                arguments.openVpn()
+            })
         case let .hiddenAction(text):
             return ItemListActionItem(presentationData: presentationData, systemStyle: .glass, title: text, kind: .generic, alignment: .natural, sectionId: self.section, style: .blocks, action: {
                 arguments.hiddenAction()
@@ -391,6 +408,7 @@ private func zalupaGramSettingsEntries(presentationData: PresentationData, delet
     }
     var entries: [ZalupaGramSettingsEntry] = []
 
+    entries.append(.vpn("🛡 VPN", zalupaGramVpnStatusLabel(strings: presentationData.strings)))
     entries.append(.ghostHeader(t("GHOST MODE", "РЕЖИМ ПРИЗРАКА")))
     entries.append(.ghostOption(0, .ghostRead, t("No read receipts", "Не отправлять «прочитано»"), ZalupaGramCore.option(.ghostRead)))
     entries.append(.ghostOption(1, .ghostOnline, t("Always offline", "Всегда «не в сети»"), ZalupaGramCore.option(.ghostOnline)))
@@ -541,11 +559,13 @@ public func zalupaGramSettingsController(context: AccountContext) -> ViewControl
         })
     }, applyTheme: { variant in
         zalupaGramApplyTheme(context: context, variant: variant)
+    }, openVpn: {
+        pushControllerImpl?(zalupaGramVpnController(context: context))
     })
 
-    let signal = combineLatest(context.sharedContext.presentationData, updated.get())
+    let signal = combineLatest(context.sharedContext.presentationData, updated.get(), ZalupaGramVpn.shared.changes)
     |> deliverOnMainQueue
-    |> map { presentationData, _ -> (ItemListControllerState, (ItemListNodeState, Any)) in
+    |> map { presentationData, _, _ -> (ItemListControllerState, (ItemListNodeState, Any)) in
         let controllerState = ItemListControllerState(presentationData: ItemListPresentationData(presentationData), title: .text("ZalupaGram"), leftNavigationButton: nil, rightNavigationButton: nil, backNavigationButton: ItemListBackButton(title: presentationData.strings.Common_Back), animateChanges: false)
         let listState = ItemListNodeState(presentationData: ItemListPresentationData(presentationData), entries: zalupaGramSettingsEntries(presentationData: presentationData, deletedCount: zalupaGramDeletedMessagesCount(context: context), hiddenCount: ZalupaGramHiddenChats.hiddenPeerIds(accountPeerId: context.account.peerId.toInt64()).count), style: .blocks, emptyStateItem: nil, animateChanges: true)
         return (controllerState, (listState, arguments))

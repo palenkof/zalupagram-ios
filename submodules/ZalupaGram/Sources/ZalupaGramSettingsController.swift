@@ -76,6 +76,7 @@ private enum ZalupaGramSettingsEntry: ItemListNodeEntry {
     case appearanceHeader(String)
     case appearanceDark(String)
     case appearanceLight(String)
+    case appearanceSystem(String)
     case appearanceInfo(String)
     case animationsHeader(String)
     case animationsDelay(String, String)
@@ -99,7 +100,7 @@ private enum ZalupaGramSettingsEntry: ItemListNodeEntry {
             return ZalupaGramSettingsSection.keep.rawValue
         case .hiddenHeader, .hiddenAction, .hiddenChangePin, .hiddenInfo:
             return ZalupaGramSettingsSection.hidden.rawValue
-        case .appearanceHeader, .appearanceDark, .appearanceLight, .appearanceInfo:
+        case .appearanceHeader, .appearanceDark, .appearanceLight, .appearanceSystem, .appearanceInfo:
             return ZalupaGramSettingsSection.appearance.rawValue
         case .animationsHeader, .animationsDelay, .animationsInfo:
             return ZalupaGramSettingsSection.animations.rawValue
@@ -152,8 +153,10 @@ private enum ZalupaGramSettingsEntry: ItemListNodeEntry {
             return 56
         case .appearanceLight:
             return 57
-        case .appearanceInfo:
+        case .appearanceSystem:
             return 58
+        case .appearanceInfo:
+            return 59
         case .animationsHeader:
             return 60
         case .animationsDelay:
@@ -277,6 +280,11 @@ private enum ZalupaGramSettingsEntry: ItemListNodeEntry {
                 return true
             }
             return false
+        case let .appearanceSystem(text):
+            if case .appearanceSystem(text) = rhs {
+                return true
+            }
+            return false
         case let .appearanceInfo(text):
             if case .appearanceInfo(text) = rhs {
                 return true
@@ -385,6 +393,10 @@ private enum ZalupaGramSettingsEntry: ItemListNodeEntry {
             return ItemListActionItem(presentationData: presentationData, systemStyle: .glass, title: text, kind: .generic, alignment: .natural, sectionId: self.section, style: .blocks, action: {
                 arguments.applyTheme(.light)
             })
+        case let .appearanceSystem(text):
+            return ItemListActionItem(presentationData: presentationData, systemStyle: .glass, title: text, kind: .generic, alignment: .natural, sectionId: self.section, style: .blocks, action: {
+                arguments.applyTheme(.system)
+            })
         case let .chatsTemplates(text, value):
             return ItemListDisclosureItem(presentationData: presentationData, systemStyle: .glass, title: text, label: value, sectionId: self.section, style: .blocks, action: {
                 arguments.openTemplates()
@@ -466,7 +478,8 @@ private func zalupaGramSettingsEntries(presentationData: PresentationData, delet
     entries.append(.appearanceHeader(t("APPEARANCE", "ОФОРМЛЕНИЕ")))
     entries.append(.appearanceDark(t("ZalupaGram theme, dark", "Тема ZalupaGram, тёмная")))
     entries.append(.appearanceLight(t("ZalupaGram theme, light", "Тема ZalupaGram, светлая")))
-    entries.append(.appearanceInfo(t("Violet from the icon. The usual themes are in Settings → Appearance.", "Фиолетовая, как иконка. Обычные темы — в Настройки → Оформление.")))
+    entries.append(.appearanceSystem(t("ZalupaGram theme, like iOS", "Тема ZalupaGram, как в системе")))
+    entries.append(.appearanceInfo(t("Violet from the icon. «Like iOS» is light by day and dark by night; dark and light turn the automatic night theme off. The usual themes are in Settings → Appearance.", "Фиолетовая, как иконка. «Как в системе» — светлая днём и тёмная ночью; тёмная и светлая выключают автоночь. Обычные темы — в Настройки → Оформление.")))
 
     entries.append(.animationsHeader(t("ANIMATED PHRASES", "АНИМИРОВАННЫЕ ФРАЗЫ")))
     entries.append(.animationsDelay(t("Time per frame", "Время на кадр"), formatSeconds(zalupaGramAnimationFrameDelay, ru: ru)))

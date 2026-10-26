@@ -212,19 +212,31 @@ public func zalupaGramPanic(context: AccountContext) {
 public enum ZalupaGramThemeVariant {
     case dark
     case light
+    // Light by day and dark by night, following iOS.
+    case system
 }
 
-// Violet from the icon, the same as in ZalupaGram Desktop.
+// Violet from the icon, the same as in ZalupaGram Desktop. Dark and light
+// turn the automatic night theme off: with it on and iOS in the dark mode
+// Telegram kept showing the night theme over the light one.
 public func zalupaGramApplyTheme(context: AccountContext, variant: ZalupaGramThemeVariant) {
-    let dark = variant == .dark
-    let reference: PresentationThemeReference = .builtin(dark ? .night : .day)
-    let accentColor = PresentationThemeAccentColor(index: 7701, baseColor: .custom, accentColor: dark ? 0xFF9B7BFF : 0xFF7C4DFF, bubbleColors: dark ? [0xFF5B3FC4] : [0xFFE9E0FF])
+    let night: PresentationThemeReference = .builtin(.night)
+    let day: PresentationThemeReference = .builtin(.day)
+    let nightAccent = PresentationThemeAccentColor(index: 7701, baseColor: .custom, accentColor: 0xFF9B7BFF, bubbleColors: [0xFF5B3FC4])
+    let dayAccent = PresentationThemeAccentColor(index: 7702, baseColor: .custom, accentColor: 0xFF7C4DFF, bubbleColors: [0xFFE9E0FF])
+    let reference = variant == .dark ? night : day
     let _ = updatePresentationThemeSettingsInteractively(accountManager: context.sharedContext.accountManager, { current in
         var accentColors = current.themeSpecificAccentColors
-        accentColors[reference.index] = accentColor
+        accentColors[night.index] = nightAccent
+        accentColors[day.index] = dayAccent
         var automaticThemeSwitchSetting = current.automaticThemeSwitchSetting
-        if dark {
-            automaticThemeSwitchSetting.theme = reference
+        automaticThemeSwitchSetting.theme = night
+        switch variant {
+        case .dark, .light:
+            automaticThemeSwitchSetting.force = false
+            automaticThemeSwitchSetting.trigger = .explicitNone
+        case .system:
+            automaticThemeSwitchSetting.trigger = .system
         }
         return PresentationThemeSettings(theme: reference, themePreferredBaseTheme: current.themePreferredBaseTheme, themeSpecificAccentColors: accentColors, themeSpecificChatWallpapers: current.themeSpecificChatWallpapers, useSystemFont: current.useSystemFont, fontSize: current.fontSize, listsFontSize: current.listsFontSize, chatBubbleSettings: current.chatBubbleSettings, automaticThemeSwitchSetting: automaticThemeSwitchSetting, largeEmoji: current.largeEmoji, reduceMotion: current.reduceMotion)
     }).startStandalone()

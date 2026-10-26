@@ -2,7 +2,6 @@ import Foundation
 import UIKit
 import Display
 import SwiftSignalKit
-import Postbox
 import TelegramCore
 import TelegramPresentationData
 import AccountContext
@@ -133,7 +132,7 @@ private final class ZalupaGramAnimation {
         }))
 
         let first = self.frames[0]
-        var attributes: [MessageAttribute] = []
+        var attributes: [EngineMessage.Attribute] = []
         if !first.1.isEmpty {
             attributes.append(TextEntitiesMessageAttribute(entities: first.1))
         }

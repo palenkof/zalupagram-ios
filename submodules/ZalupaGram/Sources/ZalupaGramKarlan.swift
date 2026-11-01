@@ -4,6 +4,7 @@ import WebKit
 import Display
 import SwiftSignalKit
 import AccountContext
+import TelegramCore
 import TelegramPresentationData
 import OverlayStatusController
 import PresentationDataUtils
@@ -98,6 +99,14 @@ public final class ZalupaGramKarlanScreen: ViewController, WKNavigationDelegate,
     private var observations: [NSKeyValueObservation] = []
     private var karlanLayout: ContainerViewLayout?
 
+    // The page to come back to when the web process has to be restarted.
+    private var lastUrl: URL = karlanHomeUrl
+    private let errorLabel = UILabel()
+    private let retryButton = UIButton(type: .system)
+    private var foregroundObserver: NSObjectProtocol?
+    private var healthCheckId = 0
+    private var healthCheckAnswered = 0
+
     public init(context: AccountContext) {
         self.context = context
         self.presentationData = context.sharedContext.currentPresentationData.with { $0 }
@@ -135,10 +144,51 @@ public final class ZalupaGramKarlanScreen: ViewController, WKNavigationDelegate,
     deinit {
         self.presentationDataDisposable?.dispose()
         self.observations.removeAll()
+        if let foregroundObserver = self.foregroundObserver {
+            NotificationCenter.default.removeObserver(foregroundObserver)
+        }
     }
 
     override public func displayNodeDidLoad() {
         super.displayNodeDidLoad()
+
+        self.progressView.alpha = 0.0
+        self.displayNode.view.addSubview(self.progressView)
+
+        self.errorLabel.numberOfLines = 0
+        self.errorLabel.textAlignment = .center
+        self.errorLabel.font = UIFont.systemFont(ofSize: 15.0)
+        self.errorLabel.isHidden = true
+        self.displayNode.view.addSubview(self.errorLabel)
+
+        let ru = zalupaGramIsRussian(self.presentationData.strings)
+        self.retryButton.setTitle(ru ? "Повторить" : "Retry", for: .normal)
+        self.retryButton.titleLabel?.font = UIFont.systemFont(ofSize: 17.0, weight: .semibold)
+        self.retryButton.addTarget(self, action: #selector(self.retryPressed), for: .touchUpInside)
+        self.retryButton.isHidden = true
+        self.displayNode.view.addSubview(self.retryButton)
+
+        // iOS kills the web process of a backgrounded app now and then,
+        // the page is checked each time the app comes back.
+        self.foregroundObserver = NotificationCenter.default.addObserver(forName: UIApplication.didBecomeActiveNotification, object: nil, queue: .main, using: { [weak self] _ in
+            guard let self, self.isViewLoaded, self.view.window != nil else {
+                return
+            }
+            self.checkPage()
+        })
+
+        self.createWebView()
+    }
+
+    private func createWebView() {
+        if let webView = self.webView {
+            self.observations.removeAll()
+            webView.navigationDelegate = nil
+            webView.uiDelegate = nil
+            webView.stopLoading()
+            webView.removeFromSuperview()
+            self.webView = nil
+        }
 
         let configuration = WKWebViewConfiguration()
         configuration.websiteDataStore = .default()
@@ -160,9 +210,6 @@ public final class ZalupaGramKarlanScreen: ViewController, WKNavigationDelegate,
         self.displayNode.view.insertSubview(webView, at: 0)
         self.webView = webView
 
-        self.progressView.alpha = 0.0
-        self.displayNode.view.addSubview(self.progressView)
-
         self.observations.append(webView.observe(\.estimatedProgress, options: [.new]) { [weak self] webView, _ in
             DispatchQueue.main.async {
                 self?.updateProgress(webView.estimatedProgress, loading: webView.isLoading)
@@ -173,9 +220,128 @@ public final class ZalupaGramKarlanScreen: ViewController, WKNavigationDelegate,
                 self?.updateBackButton(webView.canGoBack)
             }
         })
+        self.observations.append(webView.observe(\.url, options: [.new]) { [weak self] webView, _ in
+            DispatchQueue.main.async {
+                if let url = webView.url, ["http", "https"].contains(url.scheme?.lowercased() ?? ""), karlanIsSameSite(url), !url.absoluteString.contains("__cf_chl") {
+                    self?.lastUrl = url
+                }
+            }
+        })
 
         self.applyTheme()
-        webView.load(URLRequest(url: karlanHomeUrl))
+        self.updateBackButton(false)
+        self.requestLayout(transition: .immediate)
+        webView.load(URLRequest(url: self.lastUrl))
+    }
+
+    override public func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        self.checkPage()
+    }
+
+    // A page whose web process is gone stays black without any callback:
+    // ask it something and start over when it doesn't answer.
+    private func checkPage() {
+        guard let webView = self.webView, !webView.isLoading else {
+            return
+        }
+        if webView.url == nil {
+            Logger.shared.log("ZalupaGram", "karlan: no page, loading \(self.lastUrl.absoluteString)")
+            webView.load(URLRequest(url: self.lastUrl))
+            return
+        }
+        self.healthCheckId += 1
+        let id = self.healthCheckId
+        webView.evaluateJavaScript("document.body ? document.body.childElementCount : -1", completionHandler: { [weak self] result, error in
+            guard let self, id == self.healthCheckId else {
+                return
+            }
+            self.healthCheckAnswered = id
+            let children = (result as? NSNumber)?.intValue ?? -1
+            if error != nil || children <= 0 {
+                self.restartPage(reason: "check failed: \(error.map { String(describing: $0) } ?? "empty body")")
+            }
+        })
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) { [weak self] in
+            guard let self, id == self.healthCheckId, self.healthCheckAnswered != id else {
+                return
+            }
+            self.restartPage(reason: "check timed out")
+        }
+    }
+
+    private func restartPage(reason: String) {
+        Logger.shared.log("ZalupaGram", "karlan: restarting the page (\(reason)), url \(self.lastUrl.absoluteString)")
+        self.healthCheckId += 1
+        self.hideError()
+        self.createWebView()
+    }
+
+    // Pull to refresh: a usual reload while the page is alive.
+    private func reloadPage() {
+        self.hideError()
+        guard let webView = self.webView, webView.url != nil else {
+            self.restartPage(reason: "reload without a page")
+            return
+        }
+        webView.reload()
+    }
+
+    private func resetSiteData() {
+        let store = WKWebsiteDataStore.default()
+        store.fetchDataRecords(ofTypes: WKWebsiteDataStore.allWebsiteDataTypes(), completionHandler: { [weak self] records in
+            let site = records.filter { record in
+                let name = record.displayName.lowercased()
+                return name.contains("zapostit") || name.contains("cloudflare")
+            }
+            store.removeData(ofTypes: WKWebsiteDataStore.allWebsiteDataTypes(), for: site, completionHandler: {
+                guard let self else {
+                    return
+                }
+                Logger.shared.log("ZalupaGram", "karlan: site data reset, \(site.count) records")
+                self.lastUrl = karlanHomeUrl
+                self.restartPage(reason: "site data reset")
+            })
+        })
+    }
+
+    @objc private func retryPressed() {
+        self.restartPage(reason: "retry")
+    }
+
+    private func showError(_ error: Error) {
+        let nsError = error as NSError
+        // Cancelled loads and links handed over to the app are not errors.
+        if nsError.domain == NSURLErrorDomain && nsError.code == NSURLErrorCancelled {
+            return
+        }
+        if nsError.domain == "WebKitErrorDomain" && nsError.code == 102 {
+            return
+        }
+        Logger.shared.log("ZalupaGram", "karlan: load failed: \(nsError.domain) \(nsError.code) \(nsError.localizedDescription)")
+        let ru = zalupaGramIsRussian(self.presentationData.strings)
+        self.errorLabel.text = (ru ? "Не удалось открыть страницу" : "Couldn't open the page") + "\n\n" + nsError.localizedDescription
+        self.errorLabel.isHidden = false
+        self.retryButton.isHidden = false
+        self.layoutError()
+    }
+
+    private func hideError() {
+        self.errorLabel.isHidden = true
+        self.retryButton.isHidden = true
+    }
+
+    private func layoutError() {
+        guard let layout = self.karlanLayout else {
+            return
+        }
+        let width = max(0.0, layout.size.width - 64.0)
+        let labelSize = self.errorLabel.sizeThatFits(CGSize(width: width, height: .greatestFiniteMagnitude))
+        let buttonHeight: CGFloat = 44.0
+        let total = labelSize.height + 12.0 + buttonHeight
+        let top = floor((layout.size.height - total) / 2.0)
+        self.errorLabel.frame = CGRect(x: 32.0, y: top, width: width, height: labelSize.height)
+        self.retryButton.frame = CGRect(x: 32.0, y: top + labelSize.height + 12.0, width: width, height: buttonHeight)
     }
 
     override public func containerLayoutUpdated(_ layout: ContainerViewLayout, transition: ContainedViewLayoutTransition) {
@@ -195,6 +361,7 @@ public final class ZalupaGramKarlanScreen: ViewController, WKNavigationDelegate,
             transition.updateFrame(view: webView, frame: CGRect(x: 0.0, y: top, width: layout.size.width, height: max(0.0, layout.size.height - top - bottom)))
         }
         self.layoutProgress(width: layout.size.width, top: top, transition: transition)
+        self.layoutError()
     }
 
     private func applyTheme() {
@@ -202,6 +369,8 @@ public final class ZalupaGramKarlanScreen: ViewController, WKNavigationDelegate,
         let background = theme.list.plainBackgroundColor
         self.displayNode.backgroundColor = background
         self.progressView.backgroundColor = theme.rootController.navigationBar.accentTextColor
+        self.errorLabel.textColor = theme.list.itemSecondaryTextColor
+        self.retryButton.tintColor = theme.list.itemAccentColor
         if let webView = self.webView {
             webView.backgroundColor = background
             webView.scrollView.backgroundColor = background
@@ -267,7 +436,7 @@ public final class ZalupaGramKarlanScreen: ViewController, WKNavigationDelegate,
     }
 
     @objc private func refreshPulled(_ control: UIRefreshControl) {
-        self.webView?.reload()
+        self.reloadPage()
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
             control.endRefreshing()
         }
@@ -276,17 +445,22 @@ public final class ZalupaGramKarlanScreen: ViewController, WKNavigationDelegate,
     @objc private func morePressed() {
         let ru = zalupaGramIsRussian(self.presentationData.strings)
         let presentationData = self.presentationData
-        let url = self.webView?.url ?? karlanHomeUrl
+        let url = self.webView?.url ?? self.lastUrl
         let actionSheet = ActionSheetController(presentationData: presentationData)
         actionSheet.setItemGroups([
             ActionSheetItemGroup(items: [
                 ActionSheetButtonItem(title: ru ? "Обновить" : "Reload", action: { [weak self, weak actionSheet] in
                     actionSheet?.dismissAnimated()
-                    self?.webView?.reload()
+                    // A fresh web view: a stuck black page doesn't come back with a reload.
+                    self?.restartPage(reason: "reload from the menu")
                 }),
                 ActionSheetButtonItem(title: ru ? "На главную" : "Home", action: { [weak self, weak actionSheet] in
                     actionSheet?.dismissAnimated()
-                    self?.webView?.load(URLRequest(url: karlanHomeUrl))
+                    guard let self else {
+                        return
+                    }
+                    self.lastUrl = karlanHomeUrl
+                    self.restartPage(reason: "home from the menu")
                 }),
                 ActionSheetButtonItem(title: ru ? "Открыть в Safari" : "Open in Safari", action: { [weak actionSheet] in
                     actionSheet?.dismissAnimated()
@@ -299,6 +473,10 @@ public final class ZalupaGramKarlanScreen: ViewController, WKNavigationDelegate,
                         return
                     }
                     self.present(OverlayStatusController(theme: presentationData.theme, type: .genericSuccess(ru ? "Ссылка скопирована" : "Link copied", false)), in: .window(.root))
+                }),
+                ActionSheetButtonItem(title: ru ? "Сбросить данные сайта" : "Reset site data", color: .destructive, action: { [weak self, weak actionSheet] in
+                    actionSheet?.dismissAnimated()
+                    self?.resetSiteData()
                 })
             ]),
             ActionSheetItemGroup(items: [
@@ -347,19 +525,26 @@ public final class ZalupaGramKarlanScreen: ViewController, WKNavigationDelegate,
         return nil
     }
 
+    public func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) {
+        self.hideError()
+    }
+
     public func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         self.updateProgress(1.0, loading: false)
     }
 
     public func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
         self.updateProgress(1.0, loading: false)
+        self.showError(error)
     }
 
     public func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
         self.updateProgress(1.0, loading: false)
+        self.showError(error)
     }
 
     public func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
-        webView.reload()
+        // A reload of a crashed page does nothing when it never got a url.
+        self.restartPage(reason: "web process terminated")
     }
 }

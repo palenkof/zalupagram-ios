@@ -31,6 +31,7 @@ import PeerInfoStoryGridScreen
 import ShareWithPeersScreen
 import ChatEmptyNode
 import NewsScreen
+import ZalupaGram
 
 private class DetailsChatPlaceholderNode: ASDisplayNode, NavigationDetailsPlaceholderNode {
     private var presentationData: PresentationData
@@ -81,6 +82,8 @@ public final class TelegramRootController: NavigationController, TelegramRootCon
     public var chatListController: ChatListController?
     public var accountSettingsController: PeerInfoScreen?
     public var newsController: NewsScreen?
+    // ZalupaGram: «Карлан» site tab.
+    public var zalupaGramKarlanController: ZalupaGramKarlanScreen?
     
     private var permissionsDisposable: Disposable?
     private var presentationDataDisposable: Disposable?
@@ -222,6 +225,11 @@ public final class TelegramRootController: NavigationController, TelegramRootCon
         if showNewsTab {
             controllers.append(newsController)
         }
+        // ZalupaGram: created even when hidden, like the news tab.
+        let karlanController = ZalupaGramKarlanScreen(context: self.context)
+        if ZalupaGramKarlan.isEnabled {
+            controllers.append(karlanController)
+        }
         
         var restoreSettignsController: (ViewController & SettingsController)?
         if let sharedContext = self.context.sharedContext as? SharedAccountContextImpl {
@@ -248,6 +256,7 @@ public final class TelegramRootController: NavigationController, TelegramRootCon
         self.contactsController = contactsController
         self.callListController = callListController
         self.newsController = newsController
+        self.zalupaGramKarlanController = karlanController
         self.chatListController = chatListController
         self.accountSettingsController = accountSettingsController
         self.rootTabController = tabBarController
@@ -266,6 +275,9 @@ public final class TelegramRootController: NavigationController, TelegramRootCon
         controllers.append(self.chatListController!)
         if showNewsTab, let newsController = self.newsController {
             controllers.append(newsController)
+        }
+        if ZalupaGramKarlan.isEnabled, let karlanController = self.zalupaGramKarlanController {
+            controllers.append(karlanController)
         }
         controllers.append(self.accountSettingsController!)
 

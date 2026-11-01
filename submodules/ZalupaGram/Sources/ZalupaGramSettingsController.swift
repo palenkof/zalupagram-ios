@@ -51,6 +51,7 @@ private enum ZalupaGramSettingsSection: Int32 {
     case hidden
     case appearance
     case animations
+    case tabs
     case more
     case about
 }
@@ -81,6 +82,9 @@ private enum ZalupaGramSettingsEntry: ItemListNodeEntry {
     case animationsHeader(String)
     case animationsDelay(String, String)
     case animationsInfo(String)
+    case tabsHeader(String)
+    case karlanTab(String, Bool)
+    case tabsInfo(String)
     case moreHeader(String)
     case features(String)
     case exportSettings(String)
@@ -104,6 +108,8 @@ private enum ZalupaGramSettingsEntry: ItemListNodeEntry {
             return ZalupaGramSettingsSection.appearance.rawValue
         case .animationsHeader, .animationsDelay, .animationsInfo:
             return ZalupaGramSettingsSection.animations.rawValue
+        case .tabsHeader, .karlanTab, .tabsInfo:
+            return ZalupaGramSettingsSection.tabs.rawValue
         case .moreHeader, .features, .exportSettings, .importSettings:
             return ZalupaGramSettingsSection.more.rawValue
         case .checkForUpdates, .about:
@@ -163,6 +169,12 @@ private enum ZalupaGramSettingsEntry: ItemListNodeEntry {
             return 61
         case .animationsInfo:
             return 62
+        case .tabsHeader:
+            return 65
+        case .karlanTab:
+            return 66
+        case .tabsInfo:
+            return 67
         case .moreHeader:
             return 70
         case .features:
@@ -295,6 +307,21 @@ private enum ZalupaGramSettingsEntry: ItemListNodeEntry {
                 return true
             }
             return false
+        case let .tabsHeader(text):
+            if case .tabsHeader(text) = rhs {
+                return true
+            }
+            return false
+        case let .karlanTab(text, value):
+            if case .karlanTab(text, value) = rhs {
+                return true
+            }
+            return false
+        case let .tabsInfo(text):
+            if case .tabsInfo(text) = rhs {
+                return true
+            }
+            return false
         case let .animationsDelay(text, value):
             if case .animationsDelay(text, value) = rhs {
                 return true
@@ -345,14 +372,18 @@ private enum ZalupaGramSettingsEntry: ItemListNodeEntry {
     func item(presentationData: ItemListPresentationData, arguments: Any) -> ListViewItem {
         let arguments = arguments as! ZalupaGramSettingsArguments
         switch self {
-        case let .ghostHeader(text), let .chatsHeader(text), let .animationsHeader(text), let .moreHeader(text), let .keepHeader(text), let .hiddenHeader(text), let .appearanceHeader(text):
+        case let .ghostHeader(text), let .chatsHeader(text), let .animationsHeader(text), let .moreHeader(text), let .keepHeader(text), let .hiddenHeader(text), let .appearanceHeader(text), let .tabsHeader(text):
             return ItemListSectionHeaderItem(presentationData: presentationData, text: text, sectionId: self.section)
         case let .ghostOption(_, option, text, value), let .chatsOption(_, option, text, value), let .keepOption(_, option, text, value):
             return ItemListSwitchItem(presentationData: presentationData, systemStyle: .glass, title: text, value: value, sectionId: self.section, style: .blocks, updated: { value in
                 arguments.setOption(option, value)
             })
-        case let .ghostInfo(text), let .animationsInfo(text), let .keepInfo(text), let .chatsInfo(text), let .hiddenInfo(text), let .appearanceInfo(text), let .about(text):
+        case let .ghostInfo(text), let .animationsInfo(text), let .keepInfo(text), let .chatsInfo(text), let .hiddenInfo(text), let .appearanceInfo(text), let .tabsInfo(text), let .about(text):
             return ItemListTextItem(presentationData: presentationData, text: .plain(text), sectionId: self.section)
+        case let .karlanTab(text, value):
+            return ItemListSwitchItem(presentationData: presentationData, systemStyle: .glass, title: text, value: value, sectionId: self.section, style: .blocks, updated: { value in
+                ZalupaGramKarlan.setEnabled(value)
+            })
         case let .ghostClearExceptions(text):
             return ItemListActionItem(presentationData: presentationData, systemStyle: .glass, title: text, kind: .destructive, alignment: .natural, sectionId: self.section, style: .blocks, action: {
                 arguments.clearExceptions()
@@ -488,6 +519,13 @@ private func zalupaGramSettingsEntries(presentationData: PresentationData, delet
         "Напишите фразу, зажмите кнопку отправки и выберите «Анимировать фразу»."
     )))
 
+    entries.append(.tabsHeader(t("TABS", "ВКЛАДКИ")))
+    entries.append(.karlanTab(t("«Karlan» tab", "Вкладка «Карлан»"), ZalupaGramKarlan.isEnabled))
+    entries.append(.tabsInfo(t(
+        "zapostit.com/shevtsov right in the app, next to the chats. Tap the tab again to scroll up or go back to the start page.",
+        "zapostit.com/shevtsov прямо в приложении, рядом с чатами. Повторное нажатие на вкладку листает наверх и возвращает на главную."
+    )))
+
     entries.append(.moreHeader(t("MORE", "ЕЩЁ")))
     entries.append(.features(t("ZalupaGram features", "Возможности ZalupaGram")))
     entries.append(.exportSettings(t("Save settings to a file", "Сохранить настройки в файл")))
@@ -576,9 +614,9 @@ public func zalupaGramSettingsController(context: AccountContext) -> ViewControl
         pushControllerImpl?(zalupaGramVpnController(context: context))
     })
 
-    let signal = combineLatest(context.sharedContext.presentationData, updated.get(), ZalupaGramVpn.shared.changes)
+    let signal = combineLatest(context.sharedContext.presentationData, updated.get(), ZalupaGramVpn.shared.changes, ZalupaGramKarlan.enabledValue)
     |> deliverOnMainQueue
-    |> map { presentationData, _, _ -> (ItemListControllerState, (ItemListNodeState, Any)) in
+    |> map { presentationData, _, _, _ -> (ItemListControllerState, (ItemListNodeState, Any)) in
         let controllerState = ItemListControllerState(presentationData: ItemListPresentationData(presentationData), title: .text("ZalupaGram"), leftNavigationButton: nil, rightNavigationButton: nil, backNavigationButton: ItemListBackButton(title: presentationData.strings.Common_Back), animateChanges: false)
         let listState = ItemListNodeState(presentationData: ItemListPresentationData(presentationData), entries: zalupaGramSettingsEntries(presentationData: presentationData, deletedCount: zalupaGramDeletedMessagesCount(context: context), hiddenCount: ZalupaGramHiddenChats.hiddenPeerIds(accountPeerId: context.account.peerId.toInt64()).count), style: .blocks, emptyStateItem: nil, animateChanges: true)
         return (controllerState, (listState, arguments))

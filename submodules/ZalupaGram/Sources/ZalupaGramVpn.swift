@@ -90,6 +90,12 @@ public final class ZalupaGramVpn {
         return UserDefaults.standard.bool(forKey: Key.connected)
     }
 
+    // The local SOCKS port while Xray is up, for web pages that should go
+    // through the VPN too («Карлан»).
+    public var connectedSocksPort: Int? {
+        return self.status == .connected ? self.port : nil
+    }
+
     private var port: Int {
         let value = UserDefaults.standard.integer(forKey: Key.port)
         return value > 0 ? value : ZalupaGramVpn.defaultPort

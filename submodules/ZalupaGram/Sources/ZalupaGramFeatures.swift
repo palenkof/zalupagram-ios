@@ -19,6 +19,7 @@ private struct Feature {
 }
 
 private let features: [Feature] = [
+    Feature(version: "0.7.2", icon: "🛡", title: ("Karlan through the VPN", "Карлан через VPN"), text: ("While the ZalupaGram VPN is on, the site goes through it: providers cut Cloudflare.", "Пока включён VPN ZalupaGram, сайт идёт через него: провайдеры режут Cloudflare.")),
     Feature(version: "0.7.1", icon: "🔄", title: ("Karlan without a black screen", "Карлан без чёрного экрана"), text: ("The page comes back by itself after the app was in the background, «Reload» starts it over, errors are shown.", "Страница сама оживает после фона, «Обновить» запускает её заново, ошибки показываются.")),
     Feature(version: "0.7.0", icon: "🌍", title: ("Karlan", "Карлан"), text: ("zapostit.com/shevtsov in its own tab next to the chats.", "zapostit.com/shevtsov в своей вкладке рядом с чатами.")),
     Feature(version: "0.6.0", icon: "🛡", title: ("VPN for ZalupaGram", "VPN для ZalupaGram"), text: ("Subscriptions like in Happ: vless, vmess, trojan, shadowsocks through Xray inside the app, only Telegram goes through it.", "Подписки как в Happ: vless, vmess, trojan, shadowsocks через Xray внутри приложения, через него идёт только Telegram.")),

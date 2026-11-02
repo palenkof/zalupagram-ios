@@ -1,6 +1,7 @@
 import Foundation
 import UIKit
 import WebKit
+import Network
 import Display
 import SwiftSignalKit
 import AccountContext
@@ -38,6 +39,28 @@ public enum ZalupaGramKarlan {
     static func title(_ strings: PresentationStrings) -> String {
         return zalupaGramIsRussian(strings) ? "Карлан" : "Karlan"
     }
+}
+
+// Its own website data store: its proxy follows the ZalupaGram VPN without
+// touching the default store of Telegram's in-app browser.
+private let karlanStoreIdentifier = UUID(uuidString: "6B1E3C2A-5A6F-4C55-9D0E-4B6E7A1F2C3D")!
+
+private enum KarlanStore {
+    static var store: WKWebsiteDataStore?
+}
+
+private func karlanDataStore() -> WKWebsiteDataStore {
+    if let store = KarlanStore.store {
+        return store
+    }
+    let store: WKWebsiteDataStore
+    if #available(iOS 17.0, *) {
+        store = WKWebsiteDataStore(forIdentifier: karlanStoreIdentifier)
+    } else {
+        store = .default()
+    }
+    KarlanStore.store = store
+    return store
 }
 
 private func karlanIsTelegramLink(_ url: URL) -> Bool {
@@ -106,6 +129,9 @@ public final class ZalupaGramKarlanScreen: ViewController, WKNavigationDelegate,
     private var foregroundObserver: NSObjectProtocol?
     private var healthCheckId = 0
     private var healthCheckAnswered = 0
+    private var stallCheckId = 0
+    private var appliedProxyPort: Int?
+    private var vpnDisposable: Disposable?
 
     public init(context: AccountContext) {
         self.context = context
@@ -143,6 +169,7 @@ public final class ZalupaGramKarlanScreen: ViewController, WKNavigationDelegate,
 
     deinit {
         self.presentationDataDisposable?.dispose()
+        self.vpnDisposable?.dispose()
         self.observations.removeAll()
         if let foregroundObserver = self.foregroundObserver {
             NotificationCenter.default.removeObserver(foregroundObserver)
@@ -177,7 +204,29 @@ public final class ZalupaGramKarlanScreen: ViewController, WKNavigationDelegate,
             self.checkPage()
         })
 
+        // Providers cut Cloudflare sites, so the page goes through the
+        // ZalupaGram VPN while it is connected, and starts over on a switch.
+        self.vpnDisposable = (ZalupaGramVpn.shared.changes
+        |> deliverOnMainQueue).start(next: { [weak self] _ in
+            guard let self, self.webView != nil, ZalupaGramVpn.shared.connectedSocksPort != self.appliedProxyPort else {
+                return
+            }
+            self.restartPage(reason: "vpn port \(ZalupaGramVpn.shared.connectedSocksPort.map { "\($0)" } ?? "off")")
+        })
+
         self.createWebView()
+    }
+
+    private func applyProxy(to store: WKWebsiteDataStore) {
+        let port = ZalupaGramVpn.shared.connectedSocksPort
+        if #available(iOS 17.0, *) {
+            if let port, let endpointPort = NWEndpoint.Port(rawValue: UInt16(port)) {
+                store.proxyConfigurations = [ProxyConfiguration(socksv5Proxy: .hostPort(host: "127.0.0.1", port: endpointPort))]
+            } else {
+                store.proxyConfigurations = []
+            }
+        }
+        self.appliedProxyPort = port
     }
 
     private func createWebView() {
@@ -190,8 +239,10 @@ public final class ZalupaGramKarlanScreen: ViewController, WKNavigationDelegate,
             self.webView = nil
         }
 
+        let store = karlanDataStore()
+        self.applyProxy(to: store)
         let configuration = WKWebViewConfiguration()
-        configuration.websiteDataStore = .default()
+        configuration.websiteDataStore = store
         configuration.allowsInlineMediaPlayback = true
         configuration.mediaTypesRequiringUserActionForPlayback = []
 
@@ -288,7 +339,7 @@ public final class ZalupaGramKarlanScreen: ViewController, WKNavigationDelegate,
     }
 
     private func resetSiteData() {
-        let store = WKWebsiteDataStore.default()
+        let store = karlanDataStore()
         store.fetchDataRecords(ofTypes: WKWebsiteDataStore.allWebsiteDataTypes(), completionHandler: { [weak self] records in
             let site = records.filter { record in
                 let name = record.displayName.lowercased()
@@ -320,7 +371,27 @@ public final class ZalupaGramKarlanScreen: ViewController, WKNavigationDelegate,
         }
         Logger.shared.log("ZalupaGram", "karlan: load failed: \(nsError.domain) \(nsError.code) \(nsError.localizedDescription)")
         let ru = zalupaGramIsRussian(self.presentationData.strings)
-        self.errorLabel.text = (ru ? "Не удалось открыть страницу" : "Couldn't open the page") + "\n\n" + nsError.localizedDescription
+        self.showMessage((ru ? "Не удалось открыть страницу" : "Couldn't open the page") + "\n\n" + nsError.localizedDescription)
+    }
+
+    // The site hangs without an error when the provider cuts Cloudflare.
+    private func showStalled() {
+        let vpn = ZalupaGramVpn.shared.connectedSocksPort != nil
+        Logger.shared.log("ZalupaGram", "karlan: no answer from the site, vpn \(vpn ? "on" : "off")")
+        let ru = zalupaGramIsRussian(self.presentationData.strings)
+        if vpn {
+            self.showMessage(ru
+                ? "Сайт не отвечает даже через VPN ZalupaGram.\n\nПопробуйте другой сервер: настройки ZalupaGram → VPN."
+                : "The site doesn't answer even through the ZalupaGram VPN.\n\nTry another server: ZalupaGram settings → VPN.")
+        } else {
+            self.showMessage(ru
+                ? "Сайт не отвечает.\n\nПохоже, провайдер режет Cloudflare. Включите VPN в настройках ZalupaGram — «Карлан» пойдёт через него."
+                : "The site doesn't answer.\n\nLooks like the provider cuts Cloudflare. Turn on the VPN in ZalupaGram settings and «Karlan» will go through it.")
+        }
+    }
+
+    private func showMessage(_ text: String) {
+        self.errorLabel.text = text
         self.errorLabel.isHidden = false
         self.retryButton.isHidden = false
         self.layoutError()
@@ -523,6 +594,17 @@ public final class ZalupaGramKarlanScreen: ViewController, WKNavigationDelegate,
             }
         }
         return nil
+    }
+
+    public func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
+        self.stallCheckId += 1
+        let id = self.stallCheckId
+        DispatchQueue.main.asyncAfter(deadline: .now() + 15.0) { [weak self, weak webView] in
+            guard let self, let webView, webView === self.webView, id == self.stallCheckId, webView.isLoading, webView.estimatedProgress < 0.5 else {
+                return
+            }
+            self.showStalled()
+        }
     }
 
     public func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) {

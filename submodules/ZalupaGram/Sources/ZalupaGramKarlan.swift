@@ -130,7 +130,8 @@ public final class ZalupaGramKarlanScreen: ViewController, WKNavigationDelegate,
     private var healthCheckId = 0
     private var healthCheckAnswered = 0
     private var stallCheckId = 0
-    private var appliedProxyPort: Int?
+    private var appliedVpnPort: Int?
+    private var webViewGeneration = 0
     private var vpnDisposable: Disposable?
 
     public init(context: AccountContext) {
@@ -208,7 +209,7 @@ public final class ZalupaGramKarlanScreen: ViewController, WKNavigationDelegate,
         // ZalupaGram VPN while it is connected, and starts over on a switch.
         self.vpnDisposable = (ZalupaGramVpn.shared.changes
         |> deliverOnMainQueue).start(next: { [weak self] _ in
-            guard let self, self.webView != nil, ZalupaGramVpn.shared.connectedSocksPort != self.appliedProxyPort else {
+            guard let self, self.webView != nil, ZalupaGramVpn.shared.connectedSocksPort != self.appliedVpnPort else {
                 return
             }
             self.restartPage(reason: "vpn port \(ZalupaGramVpn.shared.connectedSocksPort.map { "\($0)" } ?? "off")")
@@ -217,8 +218,7 @@ public final class ZalupaGramKarlanScreen: ViewController, WKNavigationDelegate,
         self.createWebView()
     }
 
-    private func applyProxy(to store: WKWebsiteDataStore) {
-        let port = ZalupaGramVpn.shared.connectedSocksPort
+    private func applyProxy(to store: WKWebsiteDataStore, port: Int?) {
         if #available(iOS 17.0, *) {
             if let port, let endpointPort = NWEndpoint.Port(rawValue: UInt16(port)) {
                 store.proxyConfigurations = [ProxyConfiguration(socksv5Proxy: .hostPort(host: "127.0.0.1", port: endpointPort))]
@@ -226,7 +226,6 @@ public final class ZalupaGramKarlanScreen: ViewController, WKNavigationDelegate,
                 store.proxyConfigurations = []
             }
         }
-        self.appliedProxyPort = port
     }
 
     private func createWebView() {
@@ -239,8 +238,31 @@ public final class ZalupaGramKarlanScreen: ViewController, WKNavigationDelegate,
             self.webView = nil
         }
 
+        // Through the ZalupaGram VPN while it is connected, otherwise through
+        // the local proxy: TCP over IPv4, like a PC in the same network.
+        self.webViewGeneration += 1
+        let generation = self.webViewGeneration
+        let vpnPort = ZalupaGramVpn.shared.connectedSocksPort
+        self.appliedVpnPort = vpnPort
+        if let vpnPort {
+            self.buildWebView(proxyPort: vpnPort)
+            return
+        }
+        ZalupaGramKarlanProxy.shared.restartIfNeeded()
+        ZalupaGramKarlanProxy.shared.start { [weak self] port in
+            guard let self, generation == self.webViewGeneration, self.webView == nil else {
+                return
+            }
+            if port == nil {
+                Logger.shared.log("ZalupaGram", "karlan: no local proxy, going direct")
+            }
+            self.buildWebView(proxyPort: port)
+        }
+    }
+
+    private func buildWebView(proxyPort: Int?) {
         let store = karlanDataStore()
-        self.applyProxy(to: store)
+        self.applyProxy(to: store, port: proxyPort)
         let configuration = WKWebViewConfiguration()
         configuration.websiteDataStore = store
         configuration.allowsInlineMediaPlayback = true
@@ -293,7 +315,14 @@ public final class ZalupaGramKarlanScreen: ViewController, WKNavigationDelegate,
     // A page whose web process is gone stays black without any callback:
     // ask it something and start over when it doesn't answer.
     private func checkPage() {
-        guard let webView = self.webView, !webView.isLoading else {
+        guard let webView = self.webView else {
+            return
+        }
+        if self.appliedVpnPort == nil && !ZalupaGramKarlanProxy.shared.isAlive {
+            self.restartPage(reason: "local proxy is gone")
+            return
+        }
+        if webView.isLoading {
             return
         }
         if webView.url == nil {
@@ -385,8 +414,8 @@ public final class ZalupaGramKarlanScreen: ViewController, WKNavigationDelegate,
                 : "The site doesn't answer even through the ZalupaGram VPN.\n\nTry another server: ZalupaGram settings → VPN.")
         } else {
             self.showMessage(ru
-                ? "Сайт не отвечает.\n\nПохоже, провайдер режет Cloudflare. Включите VPN в настройках ZalupaGram — «Карлан» пойдёт через него."
-                : "The site doesn't answer.\n\nLooks like the provider cuts Cloudflare. Turn on the VPN in ZalupaGram settings and «Karlan» will go through it.")
+                ? "Сайт не отвечает.\n\nПроверьте интернет и нажмите «Повторить»."
+                : "The site doesn't answer.\n\nCheck the connection and tap «Retry».")
         }
     }
 

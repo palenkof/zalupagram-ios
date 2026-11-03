@@ -19,6 +19,7 @@ private struct Feature {
 }
 
 private let features: [Feature] = [
+    Feature(version: "0.8.1", icon: "🖊", title: ("Even outlines", "Ровная обводка"), text: ("Incoming messages have the same thick outline as yours.", "У входящих сообщений обводка такой же толщины, как у ваших.")),
     Feature(version: "0.8.0", icon: "🌌", title: ("Night sky theme", "Тема «Ночное небо»"), text: ("Pixel art wallpaper, violet-pink messages with outlines, on by default.", "Пиксельные обои, фиолетово-розовые сообщения с обводкой, включена сразу.")),
     Feature(version: "0.8.0", icon: "✈️", title: ("New icon", "Новая иконка"), text: ("A paper plane over the night mountains.", "Бумажный самолётик над ночными горами.")),
     Feature(version: "0.7.2", icon: "🛡", title: ("Karlan without a black screen", "Карлан без чёрного экрана"), text: ("The site goes like from a PC in the same network: TCP over IPv4 through Wi-Fi, no VPN needed.", "Сайт открывается так же, как с ПК в той же сети: TCP по IPv4 через Wi-Fi, без VPN.")),

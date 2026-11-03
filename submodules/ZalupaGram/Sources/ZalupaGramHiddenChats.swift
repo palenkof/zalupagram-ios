@@ -8,6 +8,8 @@ import TelegramPresentationData
 import TelegramUIPreferences
 import PresentationDataUtils
 import AccountContext
+import AppBundle
+import ZalupaGramCore
 import PromptUI
 
 // ZalupaGram fork: chats hidden behind a PIN, the panic link and the
@@ -214,6 +216,43 @@ public enum ZalupaGramThemeVariant {
     case light
     // Light by day and dark by night, following iOS.
     case system
+    // «Night sky»: the night theme with violet -> pink bubbles, the pixel art
+    // wallpaper and bubble outlines, the same as in ZalupaGram Desktop.
+    case sky
+}
+
+private let zalupaGramSkyAppliedKey = "zg_sky_theme_applied"
+
+private func zalupaGramSkyAccent(outline: Bool) -> PresentationThemeAccentColor {
+    let colors = (outline ? zalupaGramSkyBubbleColors : zalupaGramSkyPlainBubbleColors).map { 0xff000000 | $0 }
+    return PresentationThemeAccentColor(index: outline ? 7703 : 7704, baseColor: .custom, accentColor: 0xFFB36AF3, bubbleColors: colors)
+}
+
+private func zalupaGramIsSkyAccent(_ accent: PresentationThemeAccentColor?) -> Bool {
+    return accent?.index == 7703 || accent?.index == 7704
+}
+
+// The bundled wallpaper stored as a local image wallpaper, like a photo
+// picked from the gallery. PNG keeps the pixel art sharp.
+private func zalupaGramSkyWallpaper(context: AccountContext) -> TelegramWallpaper? {
+    guard let image = UIImage(bundleImageName: "ZalupaGram/SkyWallpaper"), let data = image.pngData() else {
+        return nil
+    }
+    let size = CGSize(width: image.size.width * image.scale, height: image.size.height * image.scale)
+    let thumbnailSize = size.fitted(CGSize(width: 320.0, height: 320.0))
+    guard let thumbnail = generateScaledImage(image: image, size: thumbnailSize, scale: 1.0), let thumbnailData = thumbnail.jpegData(compressionQuality: 0.6) else {
+        return nil
+    }
+    let store: (Data) -> LocalFileMediaResource = { data in
+        let resource = LocalFileMediaResource(fileId: Int64.random(in: Int64.min ... Int64.max))
+        context.sharedContext.accountManager.resources.storeResourceData(id: EngineMediaResource.Id(resource.id), data: data, synchronous: true)
+        context.engine.resources.storeResourceData(id: EngineMediaResource.Id(resource.id), data: data, synchronous: true)
+        return resource
+    }
+    return .image([
+        TelegramMediaImageRepresentation(dimensions: PixelDimensions(thumbnailSize), resource: store(thumbnailData), progressiveSizes: [], immediateThumbnailData: nil, hasVideo: false, isPersonal: false),
+        TelegramMediaImageRepresentation(dimensions: PixelDimensions(size), resource: store(data), progressiveSizes: [], immediateThumbnailData: nil, hasVideo: false, isPersonal: false)
+    ], WallpaperSettings())
 }
 
 // Violet from the icon, the same as in ZalupaGram Desktop. Dark and light
@@ -222,22 +261,57 @@ public enum ZalupaGramThemeVariant {
 public func zalupaGramApplyTheme(context: AccountContext, variant: ZalupaGramThemeVariant) {
     let night: PresentationThemeReference = .builtin(.night)
     let day: PresentationThemeReference = .builtin(.day)
-    let nightAccent = PresentationThemeAccentColor(index: 7701, baseColor: .custom, accentColor: 0xFF9B7BFF, bubbleColors: [0xFF5B3FC4])
+    let nightAccent: PresentationThemeAccentColor
+    if variant == .sky {
+        nightAccent = zalupaGramSkyAccent(outline: ZalupaGramCore.option(.bubbleOutline))
+    } else {
+        nightAccent = PresentationThemeAccentColor(index: 7701, baseColor: .custom, accentColor: 0xFF9B7BFF, bubbleColors: [0xFF5B3FC4])
+    }
     let dayAccent = PresentationThemeAccentColor(index: 7702, baseColor: .custom, accentColor: 0xFF7C4DFF, bubbleColors: [0xFFE9E0FF])
-    let reference = variant == .dark ? night : day
+    let reference = (variant == .dark || variant == .sky) ? night : day
+    let skyWallpaper = variant == .sky ? zalupaGramSkyWallpaper(context: context) : nil
     let _ = updatePresentationThemeSettingsInteractively(accountManager: context.sharedContext.accountManager, { current in
         var accentColors = current.themeSpecificAccentColors
         accentColors[night.index] = nightAccent
         accentColors[day.index] = dayAccent
+        var chatWallpapers = current.themeSpecificChatWallpapers
+        if let skyWallpaper {
+            for outline in [true, false] {
+                chatWallpapers[coloredThemeIndex(reference: night, accentColor: zalupaGramSkyAccent(outline: outline))] = skyWallpaper
+            }
+        }
         var automaticThemeSwitchSetting = current.automaticThemeSwitchSetting
         automaticThemeSwitchSetting.theme = night
         switch variant {
-        case .dark, .light:
+        case .dark, .light, .sky:
             automaticThemeSwitchSetting.force = false
             automaticThemeSwitchSetting.trigger = .explicitNone
         case .system:
             automaticThemeSwitchSetting.trigger = .system
         }
-        return PresentationThemeSettings(theme: reference, themePreferredBaseTheme: current.themePreferredBaseTheme, themeSpecificAccentColors: accentColors, themeSpecificChatWallpapers: current.themeSpecificChatWallpapers, useSystemFont: current.useSystemFont, fontSize: current.fontSize, listsFontSize: current.listsFontSize, chatBubbleSettings: current.chatBubbleSettings, automaticThemeSwitchSetting: automaticThemeSwitchSetting, largeEmoji: current.largeEmoji, reduceMotion: current.reduceMotion)
+        return PresentationThemeSettings(theme: reference, themePreferredBaseTheme: current.themePreferredBaseTheme, themeSpecificAccentColors: accentColors, themeSpecificChatWallpapers: chatWallpapers, useSystemFont: current.useSystemFont, fontSize: current.fontSize, listsFontSize: current.listsFontSize, chatBubbleSettings: current.chatBubbleSettings, automaticThemeSwitchSetting: automaticThemeSwitchSetting, largeEmoji: current.largeEmoji, reduceMotion: current.reduceMotion)
+    }).startStandalone()
+}
+
+// «Night sky» is the default theme: applied once on the first start of a
+// version that has it, after that the user's choice stays.
+public func zalupaGramApplySkyThemeOnce(context: AccountContext) {
+    if UserDefaults.standard.bool(forKey: zalupaGramSkyAppliedKey) {
+        return
+    }
+    UserDefaults.standard.set(true, forKey: zalupaGramSkyAppliedKey)
+    zalupaGramApplyTheme(context: context, variant: .sky)
+}
+
+// The outline switch picks the «Night sky» variant with or without outlines.
+public func zalupaGramRefreshSkyOutline(context: AccountContext) {
+    let night: PresentationThemeReference = .builtin(.night)
+    let _ = updatePresentationThemeSettingsInteractively(accountManager: context.sharedContext.accountManager, { current in
+        guard let accent = current.themeSpecificAccentColors[night.index], zalupaGramIsSkyAccent(accent) else {
+            return current
+        }
+        var accentColors = current.themeSpecificAccentColors
+        accentColors[night.index] = zalupaGramSkyAccent(outline: ZalupaGramCore.option(.bubbleOutline))
+        return current.withUpdatedThemeSpecificAccentColors(accentColors)
     }).startStandalone()
 }

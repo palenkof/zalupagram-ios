@@ -307,6 +307,8 @@ public func customizeDefaultDarkPresentationTheme(theme: PresentationTheme, edit
             badgeTextColor: badgeTextColor
         )
     )
+    // ZalupaGram: «Night sky» bubbles.
+    chat = zalupaGramCustomizeSkyChat(chat, bubbleColors: bubbleColors)
     
     return PresentationTheme(
         name: title.flatMap { .custom($0) } ?? theme.name,

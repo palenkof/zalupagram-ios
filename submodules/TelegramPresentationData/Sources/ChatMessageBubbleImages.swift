@@ -256,7 +256,11 @@ public func messageBubbleImage(maxCornerRadius: CGFloat, minCornerRadius: CGFloa
             innerExtension = 0.25
         }
         
-        if abs(UIScreenPixel - 0.5) < CGFloat.ulpOfOne {
+        if zalupaGramIsSkyOutline(strokeColor) {
+            // ZalupaGram: thick «Night sky» outlines, centered on the edge.
+            borderWidth = zalupaGramSkyOutlineWidth
+            borderOffset = 0.0
+        } else if abs(UIScreenPixel - 0.5) < CGFloat.ulpOfOne {
             borderWidth = UIScreenPixel + innerExtension
             borderOffset = -innerExtension / 2.0 + UIScreenPixel / 2.0
         } else {

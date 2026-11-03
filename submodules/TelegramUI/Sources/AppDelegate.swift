@@ -1458,6 +1458,8 @@ private func extractAccountManagerState(records: AccountRecordsView<TelegramAcco
                     self.resetIntentsIfNeeded(context: context.context)
                     // ZalupaGram: look for a new version in the releases repo.
                     zalupaGramCheckForUpdates(context: context.context, manual: false)
+                    // ZalupaGram: «Night sky» is the default theme.
+                    zalupaGramApplySkyThemeOnce(context: context.context)
                     self.crashReportPromptDisposable.set(setupCrashReportPrompt(context: context.context, isInternalBuild: buildConfig.isInternalBuild, navigationController: context.rootController, present: { [weak appDelegate = self, weak applicationContext = context] controller in
                         guard let appDelegate, let applicationContext, appDelegate.contextValue === applicationContext else { return }
                         appDelegate.mainWindow.present(controller, on: .root)

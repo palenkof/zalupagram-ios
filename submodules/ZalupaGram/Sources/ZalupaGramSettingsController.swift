@@ -9,6 +9,7 @@ import PresentationDataUtils
 import AccountContext
 import ZalupaGramCore
 import ZalupaGramSky
+import PromptUI
 
 // ZalupaGram fork: the fork settings, opened from the top of Settings.
 
@@ -554,7 +555,7 @@ private func zalupaGramSettingsEntries(presentationData: PresentationData, delet
     entries.append(.appearanceSystem(t("ZalupaGram theme, like iOS", "Тема ZalupaGram, как в системе")))
     entries.append(.appearanceSkyCity(t("Weather in a city", "Погода по городу"), ZalupaGramSky.city))
     entries.append(.appearanceSkyCaught(t("Caught in the sky", "Поймано в небе"), "\(ZalupaGramSky.caught.values.reduce(0, +))"))
-    entries.append(.appearanceInfo(t("The sky comes alive: stars, planes, whales, UFOs, by the time of day and the season. Tap a rare event in a chat to catch it. A city goes to open-meteo.com, once in half an hour. «Like iOS» is light by day and dark by night; the others turn the automatic night theme off. The usual themes are in Settings → Appearance.", "Небо живое: звёзды, самолёты, киты, НЛО, по времени суток и сезону. Нажмите на редкое событие в чате, чтобы поймать его. Город уходит на open-meteo.com раз в полчаса. «Как в системе» — светлая днём и тёмная ночью, остальные выключают автоночь. Обычные темы — в Настройки → Оформление.")))
+    entries.append(.appearanceInfo(t("The sky comes alive: stars, planes, whales, UFOs, by the time of day and the season. Tap a rare event in a chat to catch it. A city goes to open-meteo.com, its coordinates to met.no, once in half an hour. «Like iOS» is light by day and dark by night; the others turn the automatic night theme off. The usual themes are in Settings → Appearance.", "Небо живое: звёзды, самолёты, киты, НЛО, по времени суток и сезону. Нажмите на редкое событие в чате, чтобы поймать его. Город уходит на open-meteo.com, координаты на met.no, раз в полчаса. «Как в системе» — светлая днём и тёмная ночью, остальные выключают автоночь. Обычные темы — в Настройки → Оформление.")))
 
     entries.append(.animationsHeader(t("ANIMATED PHRASES", "АНИМИРОВАННЫЕ ФРАЗЫ")))
     entries.append(.animationsDelay(t("Time per frame", "Время на кадр"), formatSeconds(zalupaGramAnimationFrameDelay, ru: ru)))

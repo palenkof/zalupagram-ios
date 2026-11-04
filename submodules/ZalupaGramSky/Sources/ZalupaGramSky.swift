@@ -204,7 +204,7 @@ public final class ZalupaGramSky {
         self.weatherTimer = timer
 
         var components = URLComponents(string: "https://geocoding-api.open-meteo.com/v1/search")!
-        components.queryItems = [URLQueryItem(name: "name", value: city), URLQueryItem(name: "count", value: "1")]
+        components.queryItems = [URLQueryItem(name: "name", value: city), URLQueryItem(name: "count", value: "1"), URLQueryItem(name: "language", value: "ru")]
         guard let url = components.url else {
             return
         }
@@ -217,36 +217,41 @@ public final class ZalupaGramSky {
     }
 
     private func requestWeather(latitude: Double, longitude: Double) {
-        var components = URLComponents(string: "https://api.open-meteo.com/v1/forecast")!
+        // api.open-meteo.com is not reachable from some networks, met.no is.
+        var components = URLComponents(string: "https://api.met.no/weatherapi/locationforecast/2.0/compact")!
         components.queryItems = [
-            URLQueryItem(name: "latitude", value: "\(latitude)"),
-            URLQueryItem(name: "longitude", value: "\(longitude)"),
-            URLQueryItem(name: "current", value: "weather_code,wind_speed_10m")
+            URLQueryItem(name: "lat", value: String(format: "%.3f", latitude)),
+            URLQueryItem(name: "lon", value: String(format: "%.3f", longitude))
         ]
         guard let url = components.url else {
             return
         }
-        URLSession.shared.dataTask(with: url, completionHandler: { [weak self] data, _, _ in
-            guard let data, let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any], let current = json["current"] as? [String: Any], let code = current["weather_code"] as? Int else {
+        var request = URLRequest(url: url)
+        // The service asks to name the application.
+        request.setValue("ZalupaGram github.com/palenkof", forHTTPHeaderField: "User-Agent")
+        URLSession.shared.dataTask(with: request, completionHandler: { [weak self] data, _, _ in
+            guard let data, let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any], let properties = json["properties"] as? [String: Any], let series = properties["timeseries"] as? [[String: Any]], let first = series.first?["data"] as? [String: Any] else {
                 return
             }
-            let wind = (current["wind_speed_10m"] as? Double) ?? 0.0
-            // WMO weather interpretation codes.
+            let summary = (first["next_1_hours"] as? [String: Any])?["summary"] as? [String: Any]
+            let symbol = (summary?["symbol_code"] as? String) ?? ""
+            let details = (first["instant"] as? [String: Any])?["details"] as? [String: Any]
+            let wind = (details?["wind_speed"] as? Double) ?? 0.0
             let weather: Int32
-            if code == 45 || code == 48 {
-                weather = 6
-            } else if code >= 95 {
-                weather = 3
-            } else if code == 75 || code == 86 {
-                weather = 5
-            } else if (code >= 71 && code <= 77) || code == 85 {
-                weather = 4
-            } else if code >= 51 {
-                weather = 2
-            } else if wind >= 40.0 {
-                weather = 7
+            if symbol.contains("thunder") {
+                weather = Int32(ZG_SKY_WEATHER_STORM)
+            } else if symbol.contains("fog") {
+                weather = Int32(ZG_SKY_WEATHER_FOG)
+            } else if symbol.contains("heavysnow") || (symbol.contains("snow") && wind >= 11.0) {
+                weather = Int32(ZG_SKY_WEATHER_BLIZZARD)
+            } else if symbol.contains("snow") || symbol.contains("sleet") {
+                weather = Int32(ZG_SKY_WEATHER_SNOW)
+            } else if symbol.contains("rain") {
+                weather = Int32(ZG_SKY_WEATHER_RAIN)
+            } else if wind >= 11.0 {
+                weather = Int32(ZG_SKY_WEATHER_WIND)
             } else {
-                weather = 1
+                weather = Int32(ZG_SKY_WEATHER_CLEAR)
             }
             DispatchQueue.main.async {
                 self?.weather = weather

@@ -1262,14 +1262,41 @@ public final class WallpaperBackgroundNodeImpl: ASDisplayNode, WallpaperBackgrou
 
     // ZalupaGram: the animated sky over the stored «Night sky» wallpaper.
     private var zalupaGramSkyView: ZalupaGramSkyView?
+    private var zalupaGramSkyLogged = ""
 
     private func zalupaGramUpdateSky() {
-        var isSkyWallpaper = false
-        if case let .image(representations, _)? = self.wallpaper, let last = representations.last {
-            isSkyWallpaper = last.dimensions.width == 1536 && last.dimensions.height == 2304
+        // A wallpaper set for a chat or by the user stays, the theme marks itself
+        // with the colors of the outgoing bubbles.
+        var isSkyWallpaper = true
+        var kind = "none"
+        if let wallpaper = self.wallpaper {
+            switch wallpaper {
+            case .image:
+                kind = "image"
+            case .builtin:
+                kind = "builtin"
+            case .color:
+                kind = "color"
+                isSkyWallpaper = false
+            case .gradient:
+                kind = "gradient"
+                isSkyWallpaper = false
+            case .file:
+                kind = "file"
+                isSkyWallpaper = false
+            case .emoticon:
+                kind = "emoticon"
+                isSkyWallpaper = false
+            }
         }
         let fill = self.bubbleTheme?.chat.message.outgoing.bubble.withWallpaper.fill.map({ $0.rgb }) ?? []
-        if isSkyWallpaper && zalupaGramSkyIsMarked(outgoingFill: fill) {
+        let marked = zalupaGramSkyIsMarked(outgoingFill: fill)
+        let state = "\(kind) \(fill.map({ String($0, radix: 16) })) \(marked)"
+        if state != self.zalupaGramSkyLogged {
+            self.zalupaGramSkyLogged = state
+            Logger.shared.log("ZalupaGram", "sky: wallpaper \(state)")
+        }
+        if isSkyWallpaper && marked {
             if self.zalupaGramSkyView == nil {
                 let view = ZalupaGramSkyView(frame: self.bounds)
                 self.view.insertSubview(view, aboveSubview: self.contentNode.view)

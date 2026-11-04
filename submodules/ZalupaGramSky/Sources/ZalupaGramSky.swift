@@ -344,6 +344,20 @@ public final class ZalupaGramSkyView: UIView {
     }
 }
 
+// Colors come back through UIColor components, so they may differ by a unit.
 public func zalupaGramSkyIsMarked(outgoingFill: [UInt32]) -> Bool {
-    return outgoingFill == [0x6d3fe6, 0xd35de6]
+    let marker: [UInt32] = [0x6d3fe6, 0xd35de6]
+    guard outgoingFill.count == marker.count else {
+        return false
+    }
+    for (value, expected) in zip(outgoingFill, marker) {
+        for shift: UInt32 in [0, 8, 16] {
+            let a = Int((value >> shift) & 0xff)
+            let b = Int((expected >> shift) & 0xff)
+            if abs(a - b) > 2 {
+                return false
+            }
+        }
+    }
+    return true
 }

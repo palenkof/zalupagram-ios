@@ -1,6 +1,5 @@
 import Foundation
 import UIKit
-import CoreMotion
 import ZalupaGramCore
 import ZalupaGramSkyCore
 
@@ -9,13 +8,6 @@ import ZalupaGramSkyCore
 public final class ZalupaGramSky {
     public static let shared = ZalupaGramSky()
 
-    public enum Mode: Int {
-        case cycle = 0
-        case night = 1
-        case day = 2
-    }
-
-    private static let modeKey = "zg_sky_mode"
     private static let cityKey = "zg_sky_city"
     private static let caughtKey = "zg_sky_caught"
     private static let cols = 90
@@ -26,8 +18,6 @@ public final class ZalupaGramSky {
     private var lastTick: Date?
     private var grid: (Int, Int) = (0, 0)
     private var image: CGImage?
-    private let motion = CMMotionManager()
-    private var motionBase: (Double, Double)?
     private var weather: Int32 = 0
     private var lastPigeon: Date?
     private var weatherTimer: Timer?
@@ -50,18 +40,6 @@ public final class ZalupaGramSky {
     }
 
     // MARK: Options
-
-    public static var mode: Mode {
-        get {
-            if UserDefaults.standard.object(forKey: modeKey) == nil {
-                return .night
-            }
-            return Mode(rawValue: UserDefaults.standard.integer(forKey: modeKey)) ?? .night
-        }
-        set {
-            UserDefaults.standard.set(newValue.rawValue, forKey: modeKey)
-        }
-    }
 
     public static var city: String {
         get {
@@ -97,7 +75,6 @@ public final class ZalupaGramSky {
     fileprivate func update() {
         let active = UIApplication.shared.applicationState != .background && !self.visibleViews.isEmpty
         if active {
-            self.updateMotion(true)
             if self.timer == nil {
                 self.tick()
             }
@@ -105,7 +82,6 @@ public final class ZalupaGramSky {
             self.timer?.invalidate()
             self.timer = nil
             self.lastTick = nil
-            self.updateMotion(false)
         }
     }
 
@@ -113,37 +89,18 @@ public final class ZalupaGramSky {
         return UIAccessibility.isReduceMotionEnabled || ProcessInfo.processInfo.isLowPowerModeEnabled
     }
 
-    private func updateMotion(_ wanted: Bool) {
-        let on = wanted && ZalupaGramCore.option(.skyParallax) && !self.calm && self.motion.isDeviceMotionAvailable
-        if on && !self.motion.isDeviceMotionActive {
-            self.motionBase = nil
-            self.motion.deviceMotionUpdateInterval = 1.0 / 10.0
-            self.motion.startDeviceMotionUpdates()
-        } else if !on && self.motion.isDeviceMotionActive {
-            self.motion.stopDeviceMotionUpdates()
-            zg_sky_set_parallax(self.sky, 0.0, 0.0)
-        }
-    }
-
     private func applyOptions() {
         let date = Date()
         let parts = Calendar.current.dateComponents([.year, .month, .day, .hour, .minute, .second], from: date)
         let minutes = Double(parts.hour ?? 0) * 60.0 + Double(parts.minute ?? 0) + Double(parts.second ?? 0) / 60.0
         zg_sky_set_time(self.sky, Int32(parts.year ?? 2026), Int32((parts.month ?? 1) - 1), Int32(parts.day ?? 1), minutes)
-        zg_sky_set_mode(self.sky, Int32(ZalupaGramSky.mode.rawValue))
+        zg_sky_set_mode(self.sky, Int32(ZG_SKY_MODE_CYCLE))
         zg_sky_set_weather(self.sky, self.weather)
-        zg_sky_set_events(self.sky, (ZalupaGramCore.option(.skyEvents) && !self.calm) ? 1 : 0)
+        zg_sky_set_events(self.sky, self.calm ? 0 : 1)
         zg_sky_set_chat(self.sky, 1, 0.15, 1)
         zg_sky_set_launch_point(self.sky, 0.8, 0.92)
         let ghost = ZalupaGramCore.ghostOnline || ZalupaGramCore.option(.ghostRead) || ZalupaGramCore.option(.ghostTyping)
         zg_sky_set_ghost(self.sky, ghost ? 1 : 0)
-        if let attitude = self.motion.deviceMotion?.attitude {
-            let base = self.motionBase ?? (attitude.roll, attitude.pitch)
-            self.motionBase = base
-            let x = max(-1.0, min(1.0, (attitude.roll - base.0) / 0.5))
-            let y = max(-1.0, min(1.0, (attitude.pitch - base.1) / 0.5))
-            zg_sky_set_parallax(self.sky, Float(-x), Float(-y))
-        }
     }
 
     private func tick() {
@@ -383,5 +340,5 @@ public final class ZalupaGramSkyView: UIView {
 }
 
 public func zalupaGramSkyIsMarked(outgoingFill: [UInt32]) -> Bool {
-    return outgoingFill == [0x6d3fe6, 0xd35de6] || outgoingFill == [0x6d3fe6, 0xd35de5]
+    return outgoingFill == [0x6d3fe6, 0xd35de6]
 }

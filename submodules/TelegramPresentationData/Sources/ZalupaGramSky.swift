@@ -2,12 +2,9 @@ import Foundation
 import UIKit
 import Display
 
-// ZalupaGram «Night sky» theme: the night theme with a ZalupaGram accent
-// whose outgoing bubbles are this violet -> pink gradient. The last color
-// differs by one unit when the bubble outlines are off, so the two variants
-// are different themes and switching the outlines rebuilds the bubbles.
+// ZalupaGram «Sky» theme: the night theme with a ZalupaGram accent whose
+// outgoing bubbles are this violet -> pink gradient.
 public let zalupaGramSkyBubbleColors: [UInt32] = [0x6d3fe6, 0xd35de6]
-public let zalupaGramSkyPlainBubbleColors: [UInt32] = [0x6d3fe6, 0xd35de5]
 
 private let zalupaGramSkyOutlineIncoming = UIColor(rgb: 0x8f6cff)
 private let zalupaGramSkyOutlineOutgoing = UIColor(rgb: 0xf0a6ff)
@@ -21,21 +18,15 @@ func zalupaGramIsSkyOutline(_ color: UIColor) -> Bool {
     return rgb == zalupaGramSkyOutlineIncoming.rgb || rgb == zalupaGramSkyOutlineOutgoing.rgb
 }
 
-// Navy incoming bubbles and, if they are on, the outlines.
+// Navy incoming bubbles and the outlines.
 func zalupaGramCustomizeSkyChat(_ chat: PresentationThemeChat, bubbleColors: [UInt32]) -> PresentationThemeChat {
-    let colors = bubbleColors.map { $0 & 0xffffff }
-    let outline: Bool
-    if colors == zalupaGramSkyBubbleColors {
-        outline = true
-    } else if colors == zalupaGramSkyPlainBubbleColors {
-        outline = false
-    } else {
+    if bubbleColors.map({ $0 & 0xffffff }) != zalupaGramSkyBubbleColors {
         return chat
     }
     let incoming = chat.message.incoming.bubble
     let outgoing = chat.message.outgoing.bubble
-    let incomingStroke = outline ? zalupaGramSkyOutlineIncoming : UIColor.clear
-    let outgoingStroke = outline ? zalupaGramSkyOutlineOutgoing : UIColor.clear
+    let incomingStroke = zalupaGramSkyOutlineIncoming
+    let outgoingStroke = zalupaGramSkyOutlineOutgoing
     return chat.withUpdated(
         message: chat.message.withUpdated(
             incoming: chat.message.incoming.withUpdated(

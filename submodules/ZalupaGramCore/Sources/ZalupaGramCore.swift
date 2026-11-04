@@ -18,13 +18,10 @@ public enum ZalupaGramCore {
         case keepEdits = "zg_keep_edits" // Previous versions of edited messages.
         case profileHistory = "zg_profile_history" // Name, username and photo changes of users.
         case localPins = "zg_local_pins" // Pin chats over the server limit, in the app only.
-        case bubbleOutline = "zg_bubble_outline" // Outlines around bubbles in the «Night sky» theme.
-        case skyEvents = "zg_sky_events" // Things that happen in the animated sky.
-        case skyParallax = "zg_sky_parallax" // The sky moves a bit with the tilt of the phone.
 
         var defaultValue: Bool {
             switch self {
-            case .timeWithSeconds, .stripTracking, .localTranscribe, .freeTranslation, .noLinkPreviews, .keepDeleted, .keepEdits, .profileHistory, .localPins, .bubbleOutline, .skyEvents, .skyParallax:
+            case .timeWithSeconds, .stripTracking, .localTranscribe, .freeTranslation, .noLinkPreviews, .keepDeleted, .keepEdits, .profileHistory, .localPins:
                 return true
             default:
                 return false

@@ -65,6 +65,8 @@ void zg_sky_set_chat(ZgSky *sky, int chat_open, float dim, int soft);
 // Without events only the sky itself changes, with the time of day.
 void zg_sky_set_events(ZgSky *sky, int enabled);
 void zg_sky_set_ghost(ZgSky *sky, int enabled);
+// Automatic events run this much more often, for looking at them.
+void zg_sky_set_event_rate(ZgSky *sky, float rate);
 // From -1 to 1, the mouse position or the tilt of the phone.
 void zg_sky_set_parallax(ZgSky *sky, float x, float y);
 // Input field position on the sky for the plane of a sent message, 0..1.

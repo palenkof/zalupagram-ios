@@ -490,6 +490,7 @@ struct ZgSky {
 	bool soft = true;
 	bool eventsEnabled = true;
 	bool ghost = false;
+	double eventRate = 1.;
 	double parallaxX = 0.;
 	double parallaxY = 0.;
 	double launchX = .25;
@@ -2559,7 +2560,7 @@ struct ZgSky {
 		if (eventsEnabled) {
 			for (auto &a : automatic) {
 				if (a.condition()) {
-					a.next -= dt;
+					a.next -= dt * eventRate;
 					if (a.next <= 0.) {
 						a.next = Exp(a.mean);
 						start(a.id);
@@ -2700,6 +2701,10 @@ void zg_sky_set_events(ZgSky *sky, int enabled) {
 
 void zg_sky_set_ghost(ZgSky *sky, int enabled) {
 	sky->ghost = (enabled != 0);
+}
+
+void zg_sky_set_event_rate(ZgSky *sky, float rate) {
+	sky->eventRate = double(rate);
 }
 
 void zg_sky_set_parallax(ZgSky *sky, float x, float y) {

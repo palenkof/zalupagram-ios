@@ -490,7 +490,7 @@ struct ZgSky {
 	bool soft = true;
 	bool eventsEnabled = true;
 	bool ghost = false;
-	double eventRate = 1.;
+	double eventRate = 2.;
 	double parallaxX = 0.;
 	double parallaxY = 0.;
 	double launchX = .25;
@@ -2170,6 +2170,8 @@ struct ZgSky {
 			}
 		} break;
 		}
+		// The ground under the hills follows their color and the season.
+		p.hill[3] = Mix(p.hill[2], C(0x000000), .2);
 		palette = p;
 	}
 	void paintMoon(const Spot &moon) {
@@ -2628,6 +2630,9 @@ struct ZgSky {
 					push(runStart, ty, std::min(tx, W) - runStart, ty1 - ty);
 					runStart = -1;
 				}
+			}
+			if (runStart >= 0) {
+				push(runStart, ty, W - runStart, ty1 - ty);
 			}
 		}
 		if (count > 0) {

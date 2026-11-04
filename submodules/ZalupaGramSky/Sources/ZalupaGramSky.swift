@@ -97,7 +97,7 @@ public final class ZalupaGramSky {
         zg_sky_set_mode(self.sky, Int32(ZG_SKY_MODE_CYCLE))
         zg_sky_set_weather(self.sky, self.weather)
         zg_sky_set_events(self.sky, self.calm ? 0 : 1)
-        zg_sky_set_chat(self.sky, 1, 0.15, 1)
+        zg_sky_set_chat(self.sky, 1, 0.0, 0)
         zg_sky_set_launch_point(self.sky, 0.8, 0.92)
         let ghost = ZalupaGramCore.ghostOnline || ZalupaGramCore.option(.ghostRead) || ZalupaGramCore.option(.ghostTyping)
         zg_sky_set_ghost(self.sky, ghost ? 1 : 0)

@@ -641,8 +641,9 @@ struct ZgSky {
 			return 780.;
 		}
 		const auto s = dayShift();
-		const auto sunrise = 345. - 60. * s;
-		const auto sunset = 1215. + 60. * s;
+		// About the latitude of Moscow: 03:30-21:30 in June, 09:00-16:00 in December.
+		const auto sunrise = 375. - 165. * s;
+		const auto sunset = 1125. + 165. * s;
 		if (minutes >= sunrise && minutes <= sunset) {
 			return 345. + (minutes - sunrise) / (sunset - sunrise) * 870.;
 		}
@@ -2728,7 +2729,12 @@ void zg_sky_set_time(
 		int month,
 		int day,
 		double minutes) {
-	if (sky->year != year || sky->month != month || sky->day != day) {
+	// After a pause (the app was hidden, the laptop slept) the sky is right at
+	// once, without waiting for the next slow color update.
+	if (sky->year != year
+		|| sky->month != month
+		|| sky->day != day
+		|| std::abs(sky->minutes - minutes) >= 1.) {
 		sky->paletteAge = kPaletteInterval;
 	}
 	sky->year = year;

@@ -7,6 +7,7 @@ import EdgeEffect
 import SwiftSignalKit
 import ComponentFlow
 import ComponentDisplayAdapters
+import ZalupaGramSky
 
 final class WallpaperEdgeEffectNodeImpl: ASDisplayNode, WallpaperEdgeEffectNode {
     private struct Params: Equatable {
@@ -41,6 +42,7 @@ final class WallpaperEdgeEffectNodeImpl: ASDisplayNode, WallpaperEdgeEffectNode 
     private var params: Params?
     
     private var isInverted: Bool = false
+    private var zalupaGramSkyView: ZalupaGramSkyView?
     
     init(parentNode: WallpaperBackgroundNodeImpl) {
         self.parentNode = parentNode
@@ -81,6 +83,8 @@ final class WallpaperEdgeEffectNodeImpl: ASDisplayNode, WallpaperEdgeEffectNode 
         self.containerNode.addSubnode(self.overlayNode)
         
         self.index = parentNode.edgeEffectNodes.add(Weak(self))
+
+        self.zalupaGramUpdateSky()
     }
     
     deinit {
@@ -89,6 +93,21 @@ final class WallpaperEdgeEffectNodeImpl: ASDisplayNode, WallpaperEdgeEffectNode 
         }
     }
     
+    // ZalupaGram: the edge is a copy of the wallpaper, over the animated sky it
+    // has to be a copy of the sky.
+    func zalupaGramUpdateSky() {
+        if self.parentNode?.zalupaGramSkyView != nil {
+            if self.zalupaGramSkyView == nil {
+                let view = ZalupaGramSkyView(frame: CGRect(origin: CGPoint(), size: self.params?.containerSize ?? CGSize()), catchesTaps: false)
+                self.containerNode.view.addSubview(view)
+                self.zalupaGramSkyView = view
+            }
+        } else if let view = self.zalupaGramSkyView {
+            self.zalupaGramSkyView = nil
+            view.removeFromSuperview()
+        }
+    }
+
     func updateGradientNode() {
         if let gradientBackgroundNode = self.parentNode?.gradientBackgroundNode {
             if self.gradientNode == nil {
@@ -157,6 +176,9 @@ final class WallpaperEdgeEffectNodeImpl: ASDisplayNode, WallpaperEdgeEffectNode 
         transition.updateFrame(layer: self.patternImageLayer, frame: CGRect(origin: CGPoint(x: -rect.minX, y: -rect.minY), size: containerSize))
         
         transition.updateFrame(node: self.contentNode, frame: CGRect(origin: CGPoint(x: 0.0, y: 0.0), size: containerSize))
+        if let view = self.zalupaGramSkyView {
+            transition.updateFrame(view: view, frame: CGRect(origin: CGPoint(), size: containerSize))
+        }
         
         if blur {
             let blurHeight: CGFloat = max(edge.size, bounds.height - 24.0)

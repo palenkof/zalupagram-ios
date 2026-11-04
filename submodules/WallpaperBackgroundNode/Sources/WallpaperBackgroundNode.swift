@@ -718,7 +718,8 @@ public final class WallpaperBackgroundNodeImpl: ASDisplayNode, WallpaperBackgrou
                 case .free:
                     self.contentNode.image = nil
                     self.contentNode.backgroundColor = nil
-                    needsCleanBackground = true
+                    // ZalupaGram: a copy of the wallpaper would show through the sky.
+                    needsCleanBackground = backgroundNode.zalupaGramSkyView == nil
                     
                     //if wallpaper.isBuiltin {
                         overlayColor = selectDateFillStaticColor(theme: bubbleTheme, wallpaper: wallpaper)
@@ -1261,13 +1262,10 @@ public final class WallpaperBackgroundNodeImpl: ASDisplayNode, WallpaperBackgrou
     }
 
     // ZalupaGram: the animated sky over the stored «Night sky» wallpaper.
-    private var zalupaGramSkyView: ZalupaGramSkyView?
+    var zalupaGramSkyView: ZalupaGramSkyView?
     private var zalupaGramSkyLogged = ""
 
     private func zalupaGramUpdateSky() {
-        // A wallpaper set for a chat or by the user stays, the theme marks itself
-        // with the colors of the outgoing bubbles.
-        var isSkyWallpaper = true
         var kind = "none"
         if let wallpaper = self.wallpaper {
             switch wallpaper {
@@ -1277,35 +1275,47 @@ public final class WallpaperBackgroundNodeImpl: ASDisplayNode, WallpaperBackgrou
                 kind = "builtin"
             case .color:
                 kind = "color"
-                isSkyWallpaper = false
             case .gradient:
                 kind = "gradient"
-                isSkyWallpaper = false
             case .file:
                 kind = "file"
-                isSkyWallpaper = false
             case .emoticon:
                 kind = "emoticon"
-                isSkyWallpaper = false
             }
         }
         let fill = self.bubbleTheme?.chat.message.outgoing.bubble.withWallpaper.fill.map({ $0.rgb }) ?? []
+        // The theme marks itself with the colors of the outgoing bubbles. The
+        // wallpaper stored for it can be of any kind, only one set for this chat
+        // stays.
         let marked = zalupaGramSkyIsMarked(outgoingFill: fill)
-        let state = "\(kind) \(fill.map({ String($0, radix: 16) })) \(marked)"
+        let isCommon = self.wallpaper == self.context.sharedContext.currentPresentationData.with({ $0 }).chatWallpaper
+        let state = "\(kind) common \(isCommon) \(fill.map({ String($0, radix: 16) })) \(marked)"
         if state != self.zalupaGramSkyLogged {
             self.zalupaGramSkyLogged = state
             Logger.shared.log("ZalupaGram", "sky: wallpaper \(state)")
         }
-        if isSkyWallpaper && marked {
+        if marked && isCommon {
             if self.zalupaGramSkyView == nil {
-                let view = ZalupaGramSkyView(frame: self.bounds)
-                self.view.insertSubview(view, aboveSubview: self.contentNode.view)
+                // On top: the gradient and the pattern are inserted right above
+                // the content, so they stay under the sky.
+                let view = ZalupaGramSkyView(frame: self.bounds, catchesTaps: true)
+                self.view.addSubview(view)
                 self.zalupaGramSkyView = view
+                Logger.shared.log("ZalupaGram", "sky: view added \(self.bounds.size)")
+                self.zalupaGramSkyChanged()
             }
             self.zalupaGramSkyView?.frame = self.bounds
         } else if let view = self.zalupaGramSkyView {
             view.removeFromSuperview()
             self.zalupaGramSkyView = nil
+            self.zalupaGramSkyChanged()
+        }
+    }
+
+    private func zalupaGramSkyChanged() {
+        self.updateBubbles()
+        for edgeEffectNode in self.edgeEffectNodes {
+            edgeEffectNode.value?.zalupaGramUpdateSky()
         }
     }
 

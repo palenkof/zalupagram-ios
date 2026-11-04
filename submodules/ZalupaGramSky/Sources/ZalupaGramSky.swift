@@ -273,8 +273,10 @@ public final class ZalupaGramSkyView: UIView {
     private let label = UILabel()
     private weak var tapWindow: UIWindow?
     private var tap: UITapGestureRecognizer?
+    private let catchesTaps: Bool
 
-    public override init(frame: CGRect) {
+    public init(frame: CGRect, catchesTaps: Bool) {
+        self.catchesTaps = catchesTaps
         super.init(frame: frame)
         self.isUserInteractionEnabled = false
         self.layer.magnificationFilter = .nearest
@@ -301,12 +303,14 @@ public final class ZalupaGramSkyView: UIView {
             self.tap = nil
         }
         if let window = self.window {
-            let tap = UITapGestureRecognizer(target: self, action: #selector(self.tapped(_:)))
-            tap.cancelsTouchesInView = false
-            tap.delaysTouchesEnded = false
-            window.addGestureRecognizer(tap)
-            self.tap = tap
-            self.tapWindow = window
+            if self.catchesTaps {
+                let tap = UITapGestureRecognizer(target: self, action: #selector(self.tapped(_:)))
+                tap.cancelsTouchesInView = false
+                tap.delaysTouchesEnded = false
+                window.addGestureRecognizer(tap)
+                self.tap = tap
+                self.tapWindow = window
+            }
             ZalupaGramSky.shared.add(self)
         } else {
             ZalupaGramSky.shared.remove(self)

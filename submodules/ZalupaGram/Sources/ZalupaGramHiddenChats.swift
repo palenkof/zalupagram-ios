@@ -10,6 +10,7 @@ import PresentationDataUtils
 import AccountContext
 import AppBundle
 import ZalupaGramCore
+import ZalupaGramSky
 import PromptUI
 
 // ZalupaGram fork: chats hidden behind a PIN, the panic link and the
@@ -216,9 +217,11 @@ public enum ZalupaGramThemeVariant {
     case light
     // Light by day and dark by night, following iOS.
     case system
-    // «Night sky»: the night theme with violet -> pink bubbles, the pixel art
-    // wallpaper and bubble outlines, the same as in ZalupaGram Desktop.
+    // «Night sky»: the night theme with violet -> pink bubbles, the animated
+    // pixel sky and bubble outlines, the same as in ZalupaGram Desktop.
     case sky
+    case skyDay
+    case skyCycle
 }
 
 private let zalupaGramSkyAppliedKey = "zg_sky_theme_applied"
@@ -261,15 +264,19 @@ private func zalupaGramSkyWallpaper(context: AccountContext) -> TelegramWallpape
 public func zalupaGramApplyTheme(context: AccountContext, variant: ZalupaGramThemeVariant) {
     let night: PresentationThemeReference = .builtin(.night)
     let day: PresentationThemeReference = .builtin(.day)
+    let isSky = variant == .sky || variant == .skyDay || variant == .skyCycle
+    if isSky {
+        ZalupaGramSky.mode = (variant == .skyDay) ? .day : (variant == .skyCycle) ? .cycle : .night
+    }
     let nightAccent: PresentationThemeAccentColor
-    if variant == .sky {
+    if isSky {
         nightAccent = zalupaGramSkyAccent(outline: ZalupaGramCore.option(.bubbleOutline))
     } else {
         nightAccent = PresentationThemeAccentColor(index: 7701, baseColor: .custom, accentColor: 0xFF9B7BFF, bubbleColors: [0xFF5B3FC4])
     }
     let dayAccent = PresentationThemeAccentColor(index: 7702, baseColor: .custom, accentColor: 0xFF7C4DFF, bubbleColors: [0xFFE9E0FF])
-    let reference = (variant == .dark || variant == .sky) ? night : day
-    let skyWallpaper = variant == .sky ? zalupaGramSkyWallpaper(context: context) : nil
+    let reference = (variant == .dark || isSky) ? night : day
+    let skyWallpaper = isSky ? zalupaGramSkyWallpaper(context: context) : nil
     let _ = updatePresentationThemeSettingsInteractively(accountManager: context.sharedContext.accountManager, { current in
         var accentColors = current.themeSpecificAccentColors
         accentColors[night.index] = nightAccent
@@ -283,7 +290,7 @@ public func zalupaGramApplyTheme(context: AccountContext, variant: ZalupaGramThe
         var automaticThemeSwitchSetting = current.automaticThemeSwitchSetting
         automaticThemeSwitchSetting.theme = night
         switch variant {
-        case .dark, .light, .sky:
+        case .dark, .light, .sky, .skyDay, .skyCycle:
             automaticThemeSwitchSetting.force = false
             automaticThemeSwitchSetting.trigger = .explicitNone
         case .system:
@@ -291,6 +298,44 @@ public func zalupaGramApplyTheme(context: AccountContext, variant: ZalupaGramThe
         }
         return PresentationThemeSettings(theme: reference, themePreferredBaseTheme: current.themePreferredBaseTheme, themeSpecificAccentColors: accentColors, themeSpecificChatWallpapers: chatWallpapers, useSystemFont: current.useSystemFont, fontSize: current.fontSize, listsFontSize: current.listsFontSize, chatBubbleSettings: current.chatBubbleSettings, automaticThemeSwitchSetting: automaticThemeSwitchSetting, largeEmoji: current.largeEmoji, reduceMotion: current.reduceMotion)
     }).startStandalone()
+}
+
+// The animated sky answers to the messenger: a pigeon with a letter on a new
+// message, a salute on the birthday of the user from the profile.
+private var zalupaGramSkyDisposable: Disposable?
+
+public func zalupaGramStartSky(context: AccountContext) {
+    let sky = ZalupaGramSky.shared
+    zalupaGramSkyDisposable?.dispose()
+    zalupaGramSkyDisposable = (context.account.stateManager.notificationMessages
+    |> deliverOnMainQueue).startStrict(next: { list in
+        for item in list {
+            for message in item.0 where message.flags.contains(.Incoming) {
+                sky.fire(.received)
+                if ZalupaGramCore.isCongrats(message.text) {
+                    sky.fire(.congrats)
+                }
+            }
+        }
+    })
+    let _ = (context.engine.data.get(TelegramEngine.EngineData.Item.Peer.Birthday(id: context.account.peerId))
+    |> deliverOnMainQueue).startStandalone(next: { birthday in
+        guard let birthday else {
+            return
+        }
+        let parts = Calendar.current.dateComponents([.year, .month, .day], from: Date())
+        guard Int(birthday.day) == parts.day, Int(birthday.month) == parts.month else {
+            return
+        }
+        let stamp = "\(parts.year ?? 0)-\(parts.month ?? 0)-\(parts.day ?? 0)"
+        if UserDefaults.standard.string(forKey: "zg_sky_birthday_fired") == stamp {
+            return
+        }
+        UserDefaults.standard.set(stamp, forKey: "zg_sky_birthday_fired")
+        Queue.mainQueue().after(3.0) {
+            sky.fire(.birthday)
+        }
+    })
 }
 
 // «Night sky» is the default theme: applied once on the first start of a

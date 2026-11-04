@@ -2,6 +2,7 @@ import Foundation
 import LottieSettings
 import UIKit
 import AsyncDisplayKit
+import ZalupaGramSky
 import Display
 import GradientBackground
 import TelegramPresentationData
@@ -1259,6 +1260,28 @@ public final class WallpaperBackgroundNodeImpl: ASDisplayNode, WallpaperBackgrou
         self.layer.addSublayer(self.dimLayer)
     }
 
+    // ZalupaGram: the animated sky over the stored «Night sky» wallpaper.
+    private var zalupaGramSkyView: ZalupaGramSkyView?
+
+    private func zalupaGramUpdateSky() {
+        var isSkyWallpaper = false
+        if case let .image(representations, _)? = self.wallpaper, let last = representations.last {
+            isSkyWallpaper = last.dimensions.width == 1536 && last.dimensions.height == 2304
+        }
+        let fill = self.bubbleTheme?.chat.message.outgoing.bubble.withWallpaper.fill.map({ $0.rgb }) ?? []
+        if isSkyWallpaper && zalupaGramSkyIsMarked(outgoingFill: fill) {
+            if self.zalupaGramSkyView == nil {
+                let view = ZalupaGramSkyView(frame: self.bounds)
+                self.view.insertSubview(view, aboveSubview: self.contentNode.view)
+                self.zalupaGramSkyView = view
+            }
+            self.zalupaGramSkyView?.frame = self.bounds
+        } else if let view = self.zalupaGramSkyView {
+            view.removeFromSuperview()
+            self.zalupaGramSkyView = nil
+        }
+    }
+
     deinit {
         self.patternImageDisposable.dispose()
         self.wallpaperDisposable.dispose()
@@ -1294,6 +1317,9 @@ public final class WallpaperBackgroundNodeImpl: ASDisplayNode, WallpaperBackgrou
     }
     
     public func update(wallpaper: TelegramWallpaper, starGift: StarGift?, animated: Bool) {
+        defer {
+            self.zalupaGramUpdateSky()
+        }
         if self.wallpaper == wallpaper && self.starGift == starGift {
             return
         }
@@ -1814,6 +1840,10 @@ public final class WallpaperBackgroundNodeImpl: ASDisplayNode, WallpaperBackgrou
     public func updateLayout(size: CGSize, displayMode: WallpaperDisplayMode, transition: ContainedViewLayoutTransition) {
         let isFirstLayout = self.validLayout == nil
         self.validLayout = (size, displayMode)
+        defer {
+            self.zalupaGramUpdateSky()
+            self.zalupaGramSkyView?.frame = CGRect(origin: CGPoint(), size: size)
+        }
         
         if let freeBackgroundPortalSourceView = self.freeBackgroundPortalSourceView {
             transition.updateFrame(view: freeBackgroundPortalSourceView, frame: CGRect(origin: CGPoint(), size: size))
@@ -1893,6 +1923,9 @@ public final class WallpaperBackgroundNodeImpl: ASDisplayNode, WallpaperBackgrou
     }
     
     public func updateBubbleTheme(bubbleTheme: PresentationTheme, bubbleCorners: PresentationChatBubbleCorners) {
+        defer {
+            self.zalupaGramUpdateSky()
+        }
         if self.bubbleTheme !== bubbleTheme || self.bubbleCorners != bubbleCorners {
             self.bubbleTheme = bubbleTheme
             self.bubbleCorners = bubbleCorners

@@ -1,3 +1,4 @@
+import ZalupaGramCore
 import Foundation
 import Postbox
 import SwiftSignalKit
@@ -22,6 +23,10 @@ public enum UpdateMessageReaction {
 }
 
 public func updateMessageReactionsInteractively(account: Account, messageIds: [MessageId], reactions: [UpdateMessageReaction], isLarge: Bool, storeAsRecentlyUsed: Bool, add: Bool = false) -> Signal<Never, NoError> {
+    // ZalupaGram: the animated sky answers to a reaction.
+    if !reactions.isEmpty {
+        ZalupaGramCore.fireSky(.reaction)
+    }
     return account.postbox.transaction { transaction -> Void in
         guard let chatPeerId = messageIds.first?.peerId else {
             return

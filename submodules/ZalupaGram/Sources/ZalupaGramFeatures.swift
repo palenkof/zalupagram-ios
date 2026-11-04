@@ -19,6 +19,10 @@ private struct Feature {
 }
 
 private let features: [Feature] = [
+    Feature(version: "0.9.0", icon: "🌌", title: ("The sky is alive", "Небо ожило"), text: ("Stars, planes, whales, UFOs and dozens of events, by the time of day and the season.", "Звёзды, самолёты, киты, НЛО и десятки других событий, по времени суток и сезону.")),
+    Feature(version: "0.9.0", icon: "🌅", title: ("Day sky and day by the clock", "Дневное небо и сутки по часам"), text: ("Two more themes: ZalupaGram settings → Appearance.", "Ещё две темы: настройки ZalupaGram → Оформление.")),
+    Feature(version: "0.9.0", icon: "✈️", title: ("The sky reacts to you", "Небо отвечает на сообщения"), text: ("A paper plane on sending, a pigeon with a letter, a firework on a reaction.", "Бумажный самолётик при отправке, голубь с письмом, салют на реакцию.")),
+    Feature(version: "0.9.0", icon: "🏆", title: ("Catch rare events", "Лови редкие события"), text: ("Tap a whale or a UFO in a chat, the catches are counted in the settings.", "Нажми на кита или НЛО в чате, пойманное считается в настройках.")),
     Feature(version: "0.8.1", icon: "🖊", title: ("Even outlines", "Ровная обводка"), text: ("Incoming messages have the same thick outline as yours.", "У входящих сообщений обводка такой же толщины, как у ваших.")),
     Feature(version: "0.8.0", icon: "🌌", title: ("Night sky theme", "Тема «Ночное небо»"), text: ("Pixel art wallpaper, violet-pink messages with outlines, on by default.", "Пиксельные обои, фиолетово-розовые сообщения с обводкой, включена сразу.")),
     Feature(version: "0.8.0", icon: "✈️", title: ("New icon", "Новая иконка"), text: ("A paper plane over the night mountains.", "Бумажный самолётик над ночными горами.")),

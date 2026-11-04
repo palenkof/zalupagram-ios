@@ -54,6 +54,7 @@ swift_library(
     ],
     deps = [
         "//submodules/AsyncDisplayKit:AsyncDisplayKit",
+        "//submodules/ZalupaGramSky",
         "//submodules/LottieSettings:LottieSettings",
         "//submodules/Display:Display",
         "//submodules/GradientBackground:GradientBackground",

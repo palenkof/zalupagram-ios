@@ -8,6 +8,7 @@ import ItemListUI
 import PresentationDataUtils
 import AccountContext
 import ZalupaGramCore
+import ZalupaGramSky
 
 // ZalupaGram fork: the fork settings, opened from the top of Settings.
 
@@ -24,9 +25,11 @@ private final class ZalupaGramSettingsArguments {
     let hiddenAction: () -> Void
     let changePin: () -> Void
     let applyTheme: (ZalupaGramThemeVariant) -> Void
+    let openSkyCity: () -> Void
+    let openSkyCaught: () -> Void
     let openVpn: () -> Void
 
-    init(setOption: @escaping (ZalupaGramCore.Option, Bool) -> Void, clearExceptions: @escaping () -> Void, openFrameDelay: @escaping () -> Void, checkForUpdates: @escaping () -> Void, openFeatures: @escaping () -> Void, exportSettings: @escaping () -> Void, importSettings: @escaping () -> Void, openDeleted: @escaping () -> Void, openTemplates: @escaping () -> Void, hiddenAction: @escaping () -> Void, changePin: @escaping () -> Void, applyTheme: @escaping (ZalupaGramThemeVariant) -> Void, openVpn: @escaping () -> Void) {
+    init(setOption: @escaping (ZalupaGramCore.Option, Bool) -> Void, clearExceptions: @escaping () -> Void, openFrameDelay: @escaping () -> Void, checkForUpdates: @escaping () -> Void, openFeatures: @escaping () -> Void, exportSettings: @escaping () -> Void, importSettings: @escaping () -> Void, openDeleted: @escaping () -> Void, openTemplates: @escaping () -> Void, hiddenAction: @escaping () -> Void, changePin: @escaping () -> Void, applyTheme: @escaping (ZalupaGramThemeVariant) -> Void, openSkyCity: @escaping () -> Void, openSkyCaught: @escaping () -> Void, openVpn: @escaping () -> Void) {
         self.setOption = setOption
         self.clearExceptions = clearExceptions
         self.openFrameDelay = openFrameDelay
@@ -39,6 +42,8 @@ private final class ZalupaGramSettingsArguments {
         self.hiddenAction = hiddenAction
         self.changePin = changePin
         self.applyTheme = applyTheme
+        self.openSkyCity = openSkyCity
+        self.openSkyCaught = openSkyCaught
         self.openVpn = openVpn
     }
 }
@@ -76,6 +81,12 @@ private enum ZalupaGramSettingsEntry: ItemListNodeEntry {
     case hiddenInfo(String)
     case appearanceHeader(String)
     case appearanceSky(String)
+    case appearanceSkyDay(String)
+    case appearanceSkyCycle(String)
+    case appearanceSkyEvents(String, Bool)
+    case appearanceSkyParallax(String, Bool)
+    case appearanceSkyCity(String, String)
+    case appearanceSkyCaught(String, String)
     case appearanceDark(String)
     case appearanceLight(String)
     case appearanceSystem(String)
@@ -106,7 +117,7 @@ private enum ZalupaGramSettingsEntry: ItemListNodeEntry {
             return ZalupaGramSettingsSection.keep.rawValue
         case .hiddenHeader, .hiddenAction, .hiddenChangePin, .hiddenInfo:
             return ZalupaGramSettingsSection.hidden.rawValue
-        case .appearanceHeader, .appearanceSky, .appearanceDark, .appearanceLight, .appearanceSystem, .appearanceOutline, .appearanceInfo:
+        case .appearanceHeader, .appearanceSky, .appearanceSkyDay, .appearanceSkyCycle, .appearanceSkyEvents, .appearanceSkyParallax, .appearanceSkyCity, .appearanceSkyCaught, .appearanceDark, .appearanceLight, .appearanceSystem, .appearanceOutline, .appearanceInfo:
             return ZalupaGramSettingsSection.appearance.rawValue
         case .animationsHeader, .animationsDelay, .animationsInfo:
             return ZalupaGramSettingsSection.animations.rawValue
@@ -159,40 +170,52 @@ private enum ZalupaGramSettingsEntry: ItemListNodeEntry {
             return 54
         case .appearanceSky:
             return 55
-        case .appearanceDark:
+        case .appearanceSkyDay:
             return 56
-        case .appearanceLight:
+        case .appearanceSkyCycle:
             return 57
-        case .appearanceSystem:
+        case .appearanceDark:
             return 58
-        case .appearanceOutline:
+        case .appearanceLight:
             return 59
-        case .appearanceInfo:
+        case .appearanceSystem:
             return 60
-        case .animationsHeader:
+        case .appearanceOutline:
             return 61
-        case .animationsDelay:
+        case .appearanceSkyEvents:
             return 62
-        case .animationsInfo:
+        case .appearanceSkyParallax:
             return 63
-        case .tabsHeader:
+        case .appearanceSkyCity:
+            return 64
+        case .appearanceSkyCaught:
             return 65
-        case .karlanTab:
+        case .appearanceInfo:
             return 66
-        case .tabsInfo:
-            return 67
-        case .moreHeader:
+        case .animationsHeader:
             return 70
-        case .features:
+        case .animationsDelay:
             return 71
-        case .exportSettings:
+        case .animationsInfo:
             return 72
-        case .importSettings:
-            return 73
-        case .checkForUpdates:
+        case .tabsHeader:
+            return 75
+        case .karlanTab:
+            return 76
+        case .tabsInfo:
+            return 77
+        case .moreHeader:
             return 80
-        case .about:
+        case .features:
             return 81
+        case .exportSettings:
+            return 82
+        case .importSettings:
+            return 83
+        case .checkForUpdates:
+            return 90
+        case .about:
+            return 91
         }
     }
 
@@ -290,6 +313,36 @@ private enum ZalupaGramSettingsEntry: ItemListNodeEntry {
             return false
         case let .appearanceSky(text):
             if case .appearanceSky(text) = rhs {
+                return true
+            }
+            return false
+        case let .appearanceSkyDay(text):
+            if case .appearanceSkyDay(text) = rhs {
+                return true
+            }
+            return false
+        case let .appearanceSkyCycle(text):
+            if case .appearanceSkyCycle(text) = rhs {
+                return true
+            }
+            return false
+        case let .appearanceSkyEvents(text, value):
+            if case .appearanceSkyEvents(text, value) = rhs {
+                return true
+            }
+            return false
+        case let .appearanceSkyParallax(text, value):
+            if case .appearanceSkyParallax(text, value) = rhs {
+                return true
+            }
+            return false
+        case let .appearanceSkyCity(text, value):
+            if case .appearanceSkyCity(text, value) = rhs {
+                return true
+            }
+            return false
+        case let .appearanceSkyCaught(text, value):
+            if case .appearanceSkyCaught(text, value) = rhs {
                 return true
             }
             return false
@@ -436,6 +489,30 @@ private enum ZalupaGramSettingsEntry: ItemListNodeEntry {
             return ItemListActionItem(presentationData: presentationData, systemStyle: .glass, title: text, kind: .generic, alignment: .natural, sectionId: self.section, style: .blocks, action: {
                 arguments.applyTheme(.sky)
             })
+        case let .appearanceSkyDay(text):
+            return ItemListActionItem(presentationData: presentationData, systemStyle: .glass, title: text, kind: .generic, alignment: .natural, sectionId: self.section, style: .blocks, action: {
+                arguments.applyTheme(.skyDay)
+            })
+        case let .appearanceSkyCycle(text):
+            return ItemListActionItem(presentationData: presentationData, systemStyle: .glass, title: text, kind: .generic, alignment: .natural, sectionId: self.section, style: .blocks, action: {
+                arguments.applyTheme(.skyCycle)
+            })
+        case let .appearanceSkyEvents(text, value):
+            return ItemListSwitchItem(presentationData: presentationData, systemStyle: .glass, title: text, value: value, sectionId: self.section, style: .blocks, updated: { value in
+                arguments.setOption(.skyEvents, value)
+            })
+        case let .appearanceSkyParallax(text, value):
+            return ItemListSwitchItem(presentationData: presentationData, systemStyle: .glass, title: text, value: value, sectionId: self.section, style: .blocks, updated: { value in
+                arguments.setOption(.skyParallax, value)
+            })
+        case let .appearanceSkyCity(text, value):
+            return ItemListDisclosureItem(presentationData: presentationData, systemStyle: .glass, title: text, label: value, sectionId: self.section, style: .blocks, action: {
+                arguments.openSkyCity()
+            })
+        case let .appearanceSkyCaught(text, value):
+            return ItemListDisclosureItem(presentationData: presentationData, systemStyle: .glass, title: text, label: value, sectionId: self.section, style: .blocks, action: {
+                arguments.openSkyCaught()
+            })
         case let .appearanceDark(text):
             return ItemListActionItem(presentationData: presentationData, systemStyle: .glass, title: text, kind: .generic, alignment: .natural, sectionId: self.section, style: .blocks, action: {
                 arguments.applyTheme(.dark)
@@ -532,11 +609,17 @@ private func zalupaGramSettingsEntries(presentationData: PresentationData, delet
 
     entries.append(.appearanceHeader(t("APPEARANCE", "ОФОРМЛЕНИЕ")))
     entries.append(.appearanceSky(t("ZalupaGram theme, night sky", "Тема ZalupaGram, ночное небо")))
+    entries.append(.appearanceSkyDay(t("ZalupaGram theme, day sky", "Тема ZalupaGram, дневное небо")))
+    entries.append(.appearanceSkyCycle(t("ZalupaGram theme, day and night by the clock", "Тема ZalupaGram, сутки по часам")))
     entries.append(.appearanceDark(t("ZalupaGram theme, dark", "Тема ZalupaGram, тёмная")))
     entries.append(.appearanceLight(t("ZalupaGram theme, light", "Тема ZalupaGram, светлая")))
     entries.append(.appearanceSystem(t("ZalupaGram theme, like iOS", "Тема ZalupaGram, как в системе")))
     entries.append(.appearanceOutline(t("Message outlines in «Night sky»", "Обводка сообщений в «Ночном небе»"), ZalupaGramCore.option(.bubbleOutline)))
-    entries.append(.appearanceInfo(t("«Night sky» is the night sky of the icon: pixel art wallpaper, violet-pink messages with outlines. Violet from the icon. «Like iOS» is light by day and dark by night; the others turn the automatic night theme off. The usual themes are in Settings → Appearance.", "«Ночное небо» — небо с иконки: пиксельные обои, фиолетово-розовые сообщения с обводкой. «Как в системе» — светлая днём и тёмная ночью, остальные выключают автоночь. Обычные темы — в Настройки → Оформление.")))
+    entries.append(.appearanceSkyEvents(t("Events in the sky", "События в небе"), ZalupaGramCore.option(.skyEvents)))
+    entries.append(.appearanceSkyParallax(t("The sky follows the tilt", "Небо следует за наклоном"), ZalupaGramCore.option(.skyParallax)))
+    entries.append(.appearanceSkyCity(t("Weather in a city", "Погода по городу"), ZalupaGramSky.city))
+    entries.append(.appearanceSkyCaught(t("Caught in the sky", "Поймано в небе"), "\(ZalupaGramSky.caught.values.reduce(0, +))"))
+    entries.append(.appearanceInfo(t("The sky comes alive: stars, planes, whales, UFOs, by the time of day and the season. Tap a rare event in a chat to catch it. A city goes to open-meteo.com, once in half an hour. «Like iOS» is light by day and dark by night; the others turn the automatic night theme off. The usual themes are in Settings → Appearance.", "Небо живое: звёзды, самолёты, киты, НЛО, по времени суток и сезону. Нажмите на редкое событие в чате, чтобы поймать его. Город уходит на open-meteo.com раз в полчаса. «Как в системе» — светлая днём и тёмная ночью, остальные выключают автоночь. Обычные темы — в Настройки → Оформление.")))
 
     entries.append(.animationsHeader(t("ANIMATED PHRASES", "АНИМИРОВАННЫЕ ФРАЗЫ")))
     entries.append(.animationsDelay(t("Time per frame", "Время на кадр"), formatSeconds(zalupaGramAnimationFrameDelay, ru: ru)))
@@ -639,6 +722,21 @@ public func zalupaGramSettingsController(context: AccountContext) -> ViewControl
         })
     }, applyTheme: { variant in
         zalupaGramApplyTheme(context: context, variant: variant)
+    }, openSkyCity: {
+        let presentationData = context.sharedContext.currentPresentationData.with { $0 }
+        let ru = zalupaGramIsRussian(presentationData.strings)
+        presentControllerImpl?(promptController(context: context, text: ru ? "Погода по городу" : "Weather in a city", titleFont: .bold, subtitle: ru ? "Город уходит на open-meteo.com. Пусто — случайная погода по сезону." : "The city goes to open-meteo.com. Empty means random weather by the season.", value: ZalupaGramSky.city, placeholder: ru ? "Город" : "City", characterLimit: 64, apply: { value in
+            if let value {
+                ZalupaGramSky.city = value
+                reload()
+            }
+        }))
+    }, openSkyCaught: {
+        let presentationData = context.sharedContext.currentPresentationData.with { $0 }
+        let ru = zalupaGramIsRussian(presentationData.strings)
+        let caught = ZalupaGramSky.caught.sorted(by: { $0.key < $1.key }).map({ "\($0.key) × \($0.value)" }).joined(separator: "\n")
+        let empty = ru ? "Пока ничего. Редкие события появляются раз в несколько дней: нажмите на такое в чате." : "Nothing yet. Rare events show up once in a few days: tap one in a chat."
+        presentControllerImpl?(textAlertController(context: context, title: ru ? "Поймано в небе" : "Caught in the sky", text: caught.isEmpty ? empty : caught, actions: [TextAlertAction(type: .defaultAction, title: presentationData.strings.Common_OK, action: {})]))
     }, openVpn: {
         pushControllerImpl?(zalupaGramVpnController(context: context))
     })

@@ -19,15 +19,39 @@ public enum ZalupaGramCore {
         case profileHistory = "zg_profile_history" // Name, username and photo changes of users.
         case localPins = "zg_local_pins" // Pin chats over the server limit, in the app only.
         case bubbleOutline = "zg_bubble_outline" // Outlines around bubbles in the «Night sky» theme.
+        case skyEvents = "zg_sky_events" // Things that happen in the animated sky.
+        case skyParallax = "zg_sky_parallax" // The sky moves a bit with the tilt of the phone.
 
         var defaultValue: Bool {
             switch self {
-            case .timeWithSeconds, .stripTracking, .localTranscribe, .freeTranslation, .noLinkPreviews, .keepDeleted, .keepEdits, .profileHistory, .localPins, .bubbleOutline:
+            case .timeWithSeconds, .stripTracking, .localTranscribe, .freeTranslation, .noLinkPreviews, .keepDeleted, .keepEdits, .profileHistory, .localPins, .bubbleOutline, .skyEvents, .skyParallax:
                 return true
             default:
                 return false
             }
         }
+    }
+
+    // What happens in the messenger, the animated sky answers to it.
+    public enum SkyEvent: Int {
+        case sent = 0
+        case reaction = 1
+        case received = 2
+        case deleted = 3
+        case congrats = 4
+        case voice = 5
+        case birthday = 6
+    }
+
+    public static var skyEventHandler: ((SkyEvent) -> Void)?
+
+    public static func fireSky(_ event: SkyEvent) {
+        skyEventHandler?(event)
+    }
+
+    public static func isCongrats(_ text: String) -> Bool {
+        let lower = text.lowercased()
+        return lower.contains("с днём рождения") || lower.contains("с днем рождения") || lower.contains("happy birthday")
     }
 
     private static let ghostExceptionsKey = "zg_ghost_exceptions"

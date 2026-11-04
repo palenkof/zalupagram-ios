@@ -108,6 +108,8 @@ func zalupaGramKeepDeletedMessages(transaction: Transaction, accountPeerId: Peer
         if message.zalupaGramIsKeptDeleted {
             continue
         }
+        // ZalupaGram: the meteorite into a hill in the animated sky.
+        ZalupaGramCore.fireSky(.deleted)
         let mediaKind = zalupaGramMediaKind(message)
         if mediaKind == "service" {
             remaining.append(id)

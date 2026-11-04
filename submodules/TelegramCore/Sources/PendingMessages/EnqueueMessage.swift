@@ -1,3 +1,4 @@
+import ZalupaGramCore
 import Foundation
 import Postbox
 internal import TelegramApi
@@ -728,6 +729,25 @@ private func opportunisticallyTransformOutgoingMedia(network: Network, postbox: 
 }
 
 public func enqueueMessages(account: Account, peerId: PeerId, messages: [EnqueueMessage]) -> Signal<[MessageId?], NoError> {
+    // ZalupaGram: the animated sky answers to a sent message.
+    if !messages.isEmpty {
+        var voice = false
+        var congrats = false
+        for message in messages {
+            if case let .message(text, _, _, mediaReference, _, _, _, _, _, _) = message {
+                if ZalupaGramCore.isCongrats(text) {
+                    congrats = true
+                }
+                if let file = mediaReference?.media as? TelegramMediaFile, file.isVoice || file.isInstantVideo {
+                    voice = true
+                }
+            }
+        }
+        if congrats {
+            ZalupaGramCore.fireSky(.congrats)
+        }
+        ZalupaGramCore.fireSky(voice ? .voice : .sent)
+    }
     let signal: Signal<[(Bool, EnqueueMessage)], NoError>
     if let transformOutgoingMessageMedia = account.transformOutgoingMessageMedia {
         signal = opportunisticallyTransformOutgoingMedia(network: account.network, postbox: account.postbox, transformOutgoingMessageMedia: transformOutgoingMessageMedia, messages: messages, userInteractive: true)

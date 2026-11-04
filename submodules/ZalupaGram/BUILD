@@ -31,6 +31,7 @@ swift_library(
         "//submodules/ItemListUI:ItemListUI",
         "//submodules/PresentationDataUtils:PresentationDataUtils",
         "//submodules/ZalupaGramCore",
+        "//submodules/ZalupaGramSky",
         "//submodules/TextFormat:TextFormat",
         "//submodules/OverlayStatusController:OverlayStatusController",
         "//submodules/ContextUI:ContextUI",

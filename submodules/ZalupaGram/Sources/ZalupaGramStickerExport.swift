@@ -110,12 +110,11 @@ private func animatedFrames(file: TelegramMediaFile, path: String, side: Int, qu
         guard let data = try? Data(contentsOf: URL(fileURLWithPath: path)) else {
             return nil
         }
-        let lottieSettings = context.lottieRenderingSettings
-        guard let probe = AnimatedStickerDirectFrameSource(queue: queue, data: data, width: side, height: side, cachePathPrefix: nil, fitzModifier: nil, lottieSettings: lottieSettings) else {
+        guard let probe = AnimatedStickerDirectFrameSource(queue: queue, data: data, width: side, height: side, cachePathPrefix: nil, fitzModifier: nil) else {
             return nil
         }
         return StickerFrames(frameRate: max(1, probe.frameRate), premultiplied: true, make: {
-            return AnimatedStickerDirectFrameSource(queue: queue, data: data, width: side, height: side, cachePathPrefix: nil, fitzModifier: nil, lottieSettings: lottieSettings)
+            return AnimatedStickerDirectFrameSource(queue: queue, data: data, width: side, height: side, cachePathPrefix: nil, fitzModifier: nil)
         })
     }
 }

@@ -90,3 +90,5 @@ zalupagram/update_token.txt
 # ZalupaGram: Xray built by CI (zalupagram/xray/build_ios.sh), never commit.
 zalupagram/xray/work/
 third-party/ZalupaGramXray/ZGXray.xcframework/
+/Telegram.app/
+build/accessibility/

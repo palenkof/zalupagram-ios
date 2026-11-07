@@ -3,6 +3,15 @@ import UIKit
 import ZalupaGramCore
 import ZalupaGramSkyCore
 
+// The sky lives in Saint Petersburg, whatever the time zone of the device.
+private enum ZalupaGramSkyEngineClock {
+    static let calendar: Calendar = {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 3 * 3600) ?? .current
+        return calendar
+    }()
+}
+
 // The animated sky of the «Night sky» themes: one engine for all the chats,
 // it runs only while a sky view is on the screen and the app is active.
 public final class ZalupaGramSky {
@@ -91,7 +100,7 @@ public final class ZalupaGramSky {
 
     private func applyOptions() {
         let date = Date()
-        let parts = Calendar.current.dateComponents([.year, .month, .day, .hour, .minute, .second], from: date)
+        let parts = ZalupaGramSkyEngineClock.calendar.dateComponents([.year, .month, .day, .hour, .minute, .second], from: date)
         let minutes = Double(parts.hour ?? 0) * 60.0 + Double(parts.minute ?? 0) + Double(parts.second ?? 0) / 60.0
         zg_sky_set_time(self.sky, Int32(parts.year ?? 2026), Int32((parts.month ?? 1) - 1), Int32(parts.day ?? 1), minutes)
         zg_sky_set_mode(self.sky, Int32(ZG_SKY_MODE_CYCLE))

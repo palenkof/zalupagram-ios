@@ -19,6 +19,10 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 namespace {
 
 constexpr auto kPi = 3.14159265358979323846;
+constexpr auto kSaintPetersburgLatitude = 59.9343;
+constexpr auto kSaintPetersburgLongitude = 30.3351;
+constexpr auto kSaintPetersburgUtcMinutes = 180.;
+constexpr auto kHolidayOtherMean = 144000.;
 constexpr auto kNoValue = std::numeric_limits<int>::min();
 constexpr auto kHillMargin = 4; // Hill columns outside of the grid, parallax.
 constexpr auto kTile = 12; // Changed rects are multiples of this, in cells.
@@ -415,11 +419,14 @@ struct Moving {
 	std::function<void(Ev&, int, int, int)> post;
 };
 
+// An event has a constant chance to start at any moment. There is no countdown,
+// so closing the app never loses any progress towards a rare event.
 struct Automatic {
 	Id id = Id::Meteor;
-	double mean = 0.;
-	std::function<bool()> condition;
-	double next = 0.;
+	double mean = 0.; // Seconds of the sky on screen between two events, at its time.
+	double otherMean = 0.; // The same at any other time, never if zero.
+	std::function<bool()> favorable;
+	std::function<bool()> possible; // Only when it can't be drawn otherwise.
 };
 
 struct Star {
@@ -499,6 +506,9 @@ struct ZgSky {
 	int month = 0;
 	int day = 1;
 	double minutes = 720.;
+	mutable int sunTimesDay = -1;
+	mutable double sunriseMinutes = 0.;
+	mutable double sunsetMinutes = 0.;
 
 	double T = 0.;
 	double flash = 0.;
@@ -543,9 +553,6 @@ struct ZgSky {
 	}
 	double F() {
 		return std::generate_canonical<double, 16>(engine);
-	}
-	double Exp(double mean) {
-		return -std::log(1. - std::min(F(), .999999)) * mean;
 	}
 
 	// ---------- painting ----------
@@ -630,9 +637,40 @@ struct ZgSky {
 	[[nodiscard]] int season() const { // 0 winter, 1 spring, 2 summer, 3 autumn
 		return (month == 11 || month < 2) ? 0 : (month < 5) ? 1 : (month < 8) ? 2 : 3;
 	}
-	[[nodiscard]] double dayShift() const {
-		const auto doy = dayNumber() - DaysFromCivil(year, 1, 1) + 1;
-		return std::cos((doy - 172) / 365. * 2. * kPi);
+	// Sunrise and sunset in Saint Petersburg, minutes since the local midnight,
+	// by the NOAA solar equations.
+	void updateSunTimes() const {
+		const auto today = dayNumber();
+		if (sunTimesDay == today) {
+			return;
+		}
+		sunTimesDay = today;
+		const auto doy = today - DaysFromCivil(year, 1, 1) + 1;
+		const auto g = 2. * kPi / 365. * (doy - 1);
+		const auto equation = 229.18 * (.000075
+			+ .001868 * std::cos(g)
+			- .032077 * std::sin(g)
+			- .014615 * std::cos(2. * g)
+			- .040849 * std::sin(2. * g));
+		const auto declination = .006918
+			- .399912 * std::cos(g)
+			+ .070257 * std::sin(g)
+			- .006758 * std::cos(2. * g)
+			+ .000907 * std::sin(2. * g)
+			- .002697 * std::cos(3. * g)
+			+ .00148 * std::sin(3. * g);
+		const auto radians = kPi / 180.;
+		const auto latitude = kSaintPetersburgLatitude * radians;
+		const auto cosine = std::cos(90.833 * radians)
+			/ (std::cos(latitude) * std::cos(declination))
+			- std::tan(latitude) * std::tan(declination);
+		const auto halfDay = std::acos(std::clamp(cosine, -1., 1.)) / radians;
+		const auto noon = 720.
+			- 4. * kSaintPetersburgLongitude
+			- equation
+			+ kSaintPetersburgUtcMinutes;
+		sunriseMinutes = noon - 4. * halfDay;
+		sunsetMinutes = noon + 4. * halfDay;
 	}
 	[[nodiscard]] double phase() const {
 		if (mode == ZG_SKY_MODE_NIGHT) {
@@ -640,10 +678,9 @@ struct ZgSky {
 		} else if (mode == ZG_SKY_MODE_DAY) {
 			return 780.;
 		}
-		const auto s = dayShift();
-		// About the latitude of Moscow: 03:30-21:30 in June, 09:00-16:00 in December.
-		const auto sunrise = 375. - 165. * s;
-		const auto sunset = 1125. + 165. * s;
+		updateSunTimes();
+		const auto sunrise = sunriseMinutes;
+		const auto sunset = sunsetMinutes;
 		if (minutes >= sunrise && minutes <= sunset) {
 			return 345. + (minutes - sunrise) / (sunset - sunrise) * 870.;
 		}
@@ -2047,70 +2084,138 @@ struct ZgSky {
 		spawn(Id::Sheep, std::move(e));
 	}
 	void setupAutomatic() {
-		const auto add = [&](Id id, double mean, std::function<bool()> condition) {
-			automatic.push_back({ id, mean, std::move(condition), Exp(mean) });
+		// Means are divided by eventRate, 2 by default. Out of its time an event
+		// is `rarer` times less likely, but it can always happen.
+		const auto add = [&](
+				Id id,
+				double mean,
+				std::function<bool()> favorable,
+				double rarer = 20.) {
+			automatic.push_back({
+				id,
+				mean,
+				mean * rarer,
+				std::move(favorable) });
 		};
+		// A holiday out of its date: about 20 hours of the sky on screen.
+		const auto holiday = [&](
+				Id id,
+				double mean,
+				std::function<bool()> favorable) {
+			automatic.push_back({
+				id,
+				mean,
+				kHolidayOtherMean,
+				std::move(favorable) });
+		};
+		const auto always = [] { return true; };
 		const auto night = [this] { return isNight(); };
 		const auto dayTime = [this] { return isDay(); };
+		const auto moonVisible = [this] { return moonSpot().visible; };
+		const auto sunVisible = [this] { return sunSpot().visible; };
+
+		// Often, at their time of day.
 		add(Id::Meteor, 90., night);
-		add(Id::Satellite, 300., night);
-		add(Id::Chain, 2400., night);
-		add(Id::Jet, 480., night);
-		add(Id::Train, 1800., night);
-		add(Id::Owl, 1200., night);
-		add(Id::Constellation, 3600., night);
-		add(Id::Comet, 1800., night);
-		add(Id::Rocket, 7200., night);
-		add(Id::Flies, 3600., [this] { return isNight() && season() == 2; });
-		add(Id::Aurora, 5400., [this] { return isNight() && season() == 0; });
-		add(Id::Aurora, 21600., [this] { return isNight() && season() != 0; });
-		add(Id::Shower, 3600., [this] {
-			return isNight() && (month == 7 || month == 11);
-		});
-		add(Id::Ufo, 3600., night);
-		add(Id::Whale, 10800., night);
-		add(Id::Wolf, 1800., [this] {
-			return isNight() && std::abs(moonAge() - .5) < .04;
-		});
-		add(Id::Ghost, 600., [this] { return ghost; });
-		add(Id::Jet, 240., dayTime);
-		add(Id::Banner, 1800., dayTime);
 		add(Id::Birds, 180., dayTime);
-		add(Id::Balloon, 1200., dayTime);
-		add(Id::Airship, 3600., dayTime);
+		add(Id::Satellite, 300., night);
+		add(Id::Jet, 240., dayTime, 2.);
 		add(Id::Helicopter, 900., dayTime);
+		add(Id::Balloon, 1200., dayTime);
+		add(Id::Owl, 1200., night);
+		add(Id::Train, 1800., night);
+		add(Id::Comet, 1800., night);
+		add(Id::Banner, 1800., dayTime);
 		add(Id::Parachute, 1800., dayTime);
+		add(Id::Chain, 2400., night);
 		add(Id::Kite, 2400., dayTime);
-		add(Id::Sheep, 1800., [this] { return isDay() && season() != 0; });
+		add(Id::Constellation, 3600., night);
+		add(Id::Ufo, 3600., night);
+		add(Id::Airship, 3600., dayTime);
+		add(Id::Rocket, 7200., night);
+		add(Id::Whale, 10800., night);
+
+		// At dawn and dusk.
 		add(Id::Rooster, 1200., [this] { return isDawn(); });
 		add(Id::FogLow, 1800., [this] { return isDawn(); });
 		add(Id::Home, 600., [this] { return isEvening(); });
 		add(Id::RedMoon, 7200., [this] { return isEvening(); });
 		add(Id::Bats, 600., [this] { return isDusk(); });
 		add(Id::Camp, 7200., [this] { return isDusk(); });
+
+		// By the season or the moon.
+		add(Id::Flies, 3600., [this] { return isNight() && season() == 2; });
+		add(Id::Aurora, 5400., [this] { return isNight() && season() == 0; });
+		add(Id::Shower, 3600., [this] {
+			return isNight() && (month == 7 || month == 11);
+		});
+		add(Id::Wolf, 1800., [this] {
+			return isNight() && std::abs(moonAge() - .5) < .04;
+		});
+		add(Id::Sheep, 1800., [this] { return isDay() && season() != 0; });
 		add(Id::Skier, 1800., [this] { return season() == 0 && isDay(); });
 		add(Id::Cranes, 2400., [this] { return season() == 1 && isDay(); });
 		add(Id::Petals, 2400., [this] { return season() == 1 && isDay(); });
 		add(Id::Leaves, 1800., [this] { return season() == 3 && isDay(); });
 		add(Id::Geese, 2400., [this] { return season() == 3 && isDay(); });
-		add(Id::Cow, 172800., night);
-		add(Id::CatBalloon, 172800., dayTime);
-		add(Id::CatMoon, 600000., night);
-		add(Id::Ship, 259200., night);
-		add(Id::Legion, 259200., dayTime);
-		add(Id::Dino, 600000., dayTime);
-		add(Id::Hero, 600000., dayTime);
-		add(Id::Flash, 600000., dayTime);
-		add(Id::NewYear, 180., [this] {
+		add(Id::Rainbow, 7200., dayTime);
+		add(Id::Ghost, 600., [this] { return ghost; }, 100.);
+
+		// Rare: from 2.5 to 6 hours of the sky on screen, at the default rate.
+		add(Id::Cow, 18000., night, 3.);
+		add(Id::CatBalloon, 18000., dayTime, 3.);
+		add(Id::Ship, 28800., night, 3.);
+		add(Id::Legion, 28800., dayTime, 3.);
+		add(Id::Dino, 43200., dayTime, 3.);
+		add(Id::Hero, 43200., dayTime, 3.);
+		add(Id::Flash, 43200., dayTime, 3.);
+		add(Id::CatMoon, 43200., always, 1.);
+		automatic.back().possible = moonVisible;
+		add(Id::Lunar, 72000., always, 1.);
+		automatic.back().possible = moonVisible;
+		add(Id::Solar, 72000., always, 1.);
+		automatic.back().possible = sunVisible;
+
+		// These usually answer to what happens in the chat.
+		add(Id::Congrats, 28800., always, 1.);
+		add(Id::Banana, 43200., always, 1.);
+
+		// Holidays: often on their date, sometimes on any other.
+		holiday(Id::NewYear, 180., [this] {
 			return isDate(0, 1) && minutes < 20.;
 		});
-		add(Id::Santa, 900., [this] { return isDate(11, 31) && isNight(); });
-		add(Id::Hearts, 1800., [this] { return isDate(1, 14); });
-		add(Id::AprilFirst, 1800., [this] { return isDate(3, 1); });
-		add(Id::Ufo, 300., [this] { return isDate(3, 1); });
-		add(Id::AprilTwelfth, 1200., [this] { return isDate(3, 12); });
-		add(Id::Witch, 600., [this] { return halloween() && isNight(); });
-		add(Id::ZgBirthday, 3600., [this] { return isDate(9, 23); });
+		holiday(Id::Santa, 900., [this] {
+			return isDate(11, 31) && isNight();
+		});
+		holiday(Id::Hearts, 1800., [this] { return isDate(1, 14); });
+		holiday(Id::AprilFirst, 1800., [this] { return isDate(3, 1); });
+		holiday(Id::AprilTwelfth, 1200., [this] { return isDate(3, 12); });
+		holiday(Id::Witch, 600., [this] { return halloween() && isNight(); });
+		holiday(Id::ZgBirthday, 3600., [this] { return isDate(9, 23); });
+		add(Id::MyBirthday, kHolidayOtherMean, always, 1.);
+
+		// An addition to the chances above on some dates and seasons, never
+		// out of them.
+		const auto only = [&](
+				Id id,
+				double mean,
+				std::function<bool()> favorable) {
+			automatic.push_back({ id, mean, 0., std::move(favorable) });
+		};
+		only(Id::Aurora, 21600., [this] {
+			return isNight() && season() != 0;
+		});
+		only(Id::Ufo, 300., [this] { return isDate(3, 1); });
+	}
+	void rollAutomatic(double dt) {
+		for (const auto &a : automatic) {
+			if (a.possible && !a.possible()) {
+				continue;
+			}
+			const auto mean = a.favorable() ? a.mean : a.otherMean;
+			if (mean > 0. && F() < 1. - std::exp(-dt * eventRate / mean)) {
+				start(a.id);
+			}
+		}
 	}
 	void checkEclipses() {
 		// Dates of real eclipses, the sky shows one once on such a date.
@@ -2561,15 +2666,7 @@ struct ZgSky {
 		hillOffsetY = int(std::round(parallaxY));
 		skyOffsetX = int(std::round(parallaxX * .5));
 		if (eventsEnabled) {
-			for (auto &a : automatic) {
-				if (a.condition()) {
-					a.next -= dt * eventRate;
-					if (a.next <= 0.) {
-						a.next = Exp(a.mean);
-						start(a.id);
-					}
-				}
-			}
+			rollAutomatic(dt);
 			checkEclipses();
 		} else {
 			events.clear();

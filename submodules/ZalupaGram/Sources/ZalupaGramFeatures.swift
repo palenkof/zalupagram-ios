@@ -19,6 +19,9 @@ private struct Feature {
 }
 
 private let features: [Feature] = [
+    Feature(version: "0.10.0", icon: "🎮", title: ("Games in messages", "Игры в сообщениях"), text: ("Based on Telegram 13.2: interactive HTML messages from bots.", "На базе Telegram 13.2: интерактивные HTML-сообщения от ботов.")),
+    Feature(version: "0.10.0", icon: "🎲", title: ("Anything can happen in the sky", "В небе может случиться всё"), text: ("Every event has its own chance at any moment, rare ones come much more often.", "У каждого события свой шанс в любой момент, редкие приходят гораздо чаще.")),
+    Feature(version: "0.10.0", icon: "🌅", title: ("The sun of Saint Petersburg", "Солнце как в Питере"), text: ("Sunrise and sunset follow the real time of Saint Petersburg.", "Рассвет и закат идут по настоящему времени Петербурга.")),
     Feature(version: "0.9.0", icon: "🌌", title: ("The sky is alive", "Небо ожило"), text: ("One theme for everything: the sky follows the clock, the season and the date.", "Одна тема на всё: небо само следует за часами, сезоном и датой.")),
     Feature(version: "0.9.0", icon: "✈️", title: ("The sky reacts to you", "Небо отвечает на сообщения"), text: ("A paper plane on sending, a pigeon with a letter, a firework on a reaction.", "Бумажный самолётик при отправке, голубь с письмом, салют на реакцию.")),
     Feature(version: "0.9.0", icon: "🏆", title: ("Catch rare events", "Лови редкие события"), text: ("Tap a whale or a UFO in a chat, the catches are counted in the settings.", "Нажми на кита или НЛО в чате, пойманное считается в настройках.")),

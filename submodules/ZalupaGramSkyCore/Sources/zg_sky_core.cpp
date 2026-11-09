@@ -551,8 +551,13 @@ struct ZgSky {
 	int R(int n) {
 		return (n > 0) ? int(engine() % uint32_t(n)) : 0;
 	}
+	// A uniform number in [0, 1) with 53 random bits. Not generate_canonical:
+	// a recent MSVC STL gives it only the asked 16 bits, so every chance
+	// below 1/65536 a tick became 1/65536 and rare events came every minute.
 	double F() {
-		return std::generate_canonical<double, 16>(engine);
+		const auto high = uint64_t(engine() >> 5);
+		const auto low = uint64_t(engine() >> 6);
+		return double((high << 26) | low) * (1. / 9007199254740992.);
 	}
 
 	// ---------- painting ----------
@@ -2206,13 +2211,43 @@ struct ZgSky {
 		});
 		only(Id::Ufo, 300., [this] { return isDate(3, 1); });
 	}
+	// How many different automatic events are on screen now. Answers to the
+	// chat and helper particles are not counted.
+	int busyEvents() const {
+		auto ids = std::array<bool, size_t(Id::Fireworks) + 1>();
+		auto result = 0;
+		for (const auto &e : events) {
+			switch (e.id) {
+			case Id::Sent:
+			case Id::Reaction:
+			case Id::Pigeon:
+			case Id::Deleted:
+			case Id::Burst:
+			case Id::Rise:
+				continue;
+			default:
+				break;
+			}
+			auto &seen = ids[size_t(e.id)];
+			if (!seen) {
+				seen = true;
+				++result;
+			}
+		}
+		return result;
+	}
 	void rollAutomatic(double dt) {
+		// The more is already on screen, the smaller the chance of one more.
+		// Not a hard limit: three or four at once still happen, just rarely.
+		static constexpr double kCrowd[] = { 1., .55, .2, .07, .02 };
+		const auto busy = std::min(busyEvents(), int(std::size(kCrowd)) - 1);
+		const auto rate = eventRate * kCrowd[busy];
 		for (const auto &a : automatic) {
 			if (a.possible && !a.possible()) {
 				continue;
 			}
 			const auto mean = a.favorable() ? a.mean : a.otherMean;
-			if (mean > 0. && F() < 1. - std::exp(-dt * eventRate / mean)) {
+			if (mean > 0. && F() < 1. - std::exp(-dt * rate / mean)) {
 				start(a.id);
 			}
 		}

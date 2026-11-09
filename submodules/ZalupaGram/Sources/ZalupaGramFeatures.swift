@@ -19,6 +19,7 @@ private struct Feature {
 }
 
 private let features: [Feature] = [
+    Feature(version: "0.10.1", icon: "🌤", title: ("A calmer sky", "Небо спокойнее"), text: ("Usually one or two events at a time, rare ones are rare again.", "Обычно одно-два события за раз, редкие снова редкие.")),
     Feature(version: "0.10.0", icon: "🎮", title: ("Games in messages", "Игры в сообщениях"), text: ("Based on Telegram 13.2: interactive HTML messages from bots.", "На базе Telegram 13.2: интерактивные HTML-сообщения от ботов.")),
     Feature(version: "0.10.0", icon: "🎲", title: ("Anything can happen in the sky", "В небе может случиться всё"), text: ("Every event has its own chance at any moment, rare ones come much more often.", "У каждого события свой шанс в любой момент, редкие приходят гораздо чаще.")),
     Feature(version: "0.10.0", icon: "🌅", title: ("The sun of Saint Petersburg", "Солнце как в Питере"), text: ("Sunrise and sunset follow the real time of Saint Petersburg.", "Рассвет и закат идут по настоящему времени Петербурга.")),
